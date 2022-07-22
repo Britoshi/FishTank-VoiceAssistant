@@ -27,8 +27,8 @@ recognizer = speech_recognition_module.Recognizer();
 
 voice_commands = list(); 
  
-HOST = "localhost"; #"192.168.1.141"  # Standard loopback interface address (localhost)
-PORT = 65432  # Port to listen on (non-privileged ports are > 1023)
+HOST = "192.168.1.151"; #"192.168.1.141"  # Standard loopback interface address (localhost)
+PORT = 42069  # Port to listen on (non-privileged ports are > 1023)
 ACK_TEXT = 'text_received'; 
 
 #############################################

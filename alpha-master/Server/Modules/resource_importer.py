@@ -75,9 +75,11 @@ def parse_commands() -> list:
                     trigger_word = trigger_word.strip(); 
                     command = command_listener.VoiceCommand(priority=priority, name=name, trigger_word=trigger_word, function=function, type=command_type,query_list=query_list, script= script_object);  
                     commands.append(command); 
+                    
         except:
-            raise Exception(f"You messed up with the formating with {file}, go fix it and rerun the server script."); 
-            
+            print(f"WARNING: You messed up with the formating with {file}, go fix it and rerun the server script.");  
+            continue; 
+
     commands.sort(); 
     return commands;  
 

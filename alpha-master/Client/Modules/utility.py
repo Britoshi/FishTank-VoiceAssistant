@@ -1,9 +1,7 @@
 from os.path import exists; 
 from configparser import ConfigParser
 from pathlib import Path
-from pickle import NONE
-from debugpy import configure
-from gridfs import ConfigurationError;  
+from pickle import NONE 
 import requests
 
 ######################################################################
@@ -31,7 +29,7 @@ class Configuration(object):
     def __init__(self, default:bool = True):
         if default:   
             self.HOST_IP = "192.168.1.151"; 
-            self.PORT = "69420"; 
+            self.PORT = "42069"; 
         else:
             self.HOST_IP = None; 
             self.PORT = None;   
