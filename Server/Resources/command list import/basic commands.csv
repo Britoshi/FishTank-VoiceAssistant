@@ -1,0 +1,9 @@
+priority,type,function,command type,query list,import script name,trigger words
+1,Weather,_speak_command_check_weather,Free,,,"weather, how is the weather"
+1,Return,_speak_command_return,Strict,,,"nevermind, stop"
+2,Weather,_query_command_weather,Free,"in,at,around",,"weather, what is it like"
+1,Time,tell_time,Free,,import_example,what time is it
+1,Date,tell_date,Free,,import_example,"what day is it, what is today, what day is today, what day is it today"
+1,Date,tell_calendar,Free,,import_example,"what is the date, what date is it"
+1,Food,caf_function_today,Free,for,ethan_script,"what's on the menu today, tell me the menu today"
+2,Food,caf_function_date,Free,menu|for,,"what's on the menu, tell me the menu"
