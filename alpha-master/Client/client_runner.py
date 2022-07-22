@@ -9,8 +9,11 @@ from Modules import utility as util;
 from Modules import text_to_speech;
 from AudioPlayer import audio_player;
 
-HOST = "localhost"; 
-PORT = 65432; 
+CONFIG = util.Configuration.load_config(); 
+
+HOST = CONFIG.HOST_IP; 
+PORT = CONFIG.PORT; 
+
 ACK_TEXT = 'text_received'
  
 RECOGNIZER = speech_recognition.Recognizer(); 

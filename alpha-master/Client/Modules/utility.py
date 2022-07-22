@@ -1,6 +1,9 @@
 from os.path import exists; 
 from configparser import ConfigParser
-from pathlib import Path;  
+from pathlib import Path
+from pickle import NONE
+from debugpy import configure
+from gridfs import ConfigurationError;  
 import requests
 
 ######################################################################
@@ -23,25 +26,28 @@ CONFIG_PATH = PARENT_DIR + "\\properties.cfg";
 ######                      Class / Object                      ######
 ######################################################################
 
-class Configuration(object):
-    def __init__(self):
-        self.HOST_ID = "192.168.1.151"; 
-        self.PORT = "69420";  
-
-    def __init__(self, HOST_ID, PORT):
-        self = Configuration(); 
-        self.HOST_ID = HOST_ID; 
-        self.PORT = PORT;  
+class Configuration(object): 
+ 
+    def __init__(self, default:bool = True):
+        if default:   
+            self.HOST_IP = "192.168.1.151"; 
+            self.PORT = "69420"; 
+        else:
+            self.HOST_IP = None; 
+            self.PORT = None;   
  
     def to_readable(self):
-        text = "FishTank Voice Assistant Configuration Version 0.1\n"; 
-        text += "HOST_ID=" + self.HOST_ID + "\n"; 
+        text = "#FishTank Voice Assistant Configuration Version 0.1\n"; 
+        text += "HOST_IP=" + self.HOST_IP + "\n"; 
         text += "PORT=" + self.PORT; 
         return text; 
 
-
     @staticmethod
-    def load_config():
+    def __print_github():
+        print(r"Please Read: https://github.com/Britoshi/FishTank-VoiceAssistant/tree/main/alpha-master/Client#%EF%B8%8F-configuration"); 
+ 
+    @classmethod
+    def load_config(cls):
         """ 
         Parses the configuration file and return it as usuable dictionary object.  
 
@@ -52,20 +58,53 @@ class Configuration(object):
         Configuration
             The Configuration parsed from the existing file. 
         """ 
-        if file_exists(CONFIG_PATH): 
-            file = open(CONFIG_PATH, "r"); 
-            for line in file.readlines():
-                #Checks
-                if line[0] == "#" : continue; 
-                if "=" not in line: 
-                    print("WARNING: Incorrect formating in confiration file. Ignoring and continuing. Please read: ")
-                #If nothing's wrong
-                #match line:
-
-
-
-        else:
+        if not file_exists(CONFIG_PATH): 
+            print("Configuration: No configuration file found, generating one at: " + CONFIG_PATH); 
             return Configuration.generate_config(); 
+
+        configuration = Configuration(default = False); 
+
+        duplicate_detector = list(); 
+
+        file = open(CONFIG_PATH, "r"); 
+        for line in file.readlines():
+            #Checks
+            if line[0] == "#" : continue; 
+            if "=" not in line: 
+                print("WARNING: Incorrect formating in confiration file. Ignoring and continuing."); 
+                cls.__print_github(); 
+                continue; 
+            #If nothing's wrong
+            tokens = line.split("="); 
+
+            config_name = tokens[0].strip(); 
+            config_content = tokens[1].strip();  
+            match config_name:
+                case "HOST_IP":
+                    configuration.HOST_IP = config_content; 
+                case "PORT":
+                    configuration.PORT = config_content; 
+                case _:
+                    print(f"WARNING: Given Config name of '{config_name}' does not match. Ignoring and continuing"); 
+                    cls.__print_github(); 
+                    continue; 
+
+            if config_name in duplicate_detector:
+                print(f"WARNING: The given config name '{config_name}' is a duplicate, please make sure there's only one."); 
+                continue; 
+
+            duplicate_detector.append(config_name);  
+            #End of readline 
+        
+        def error_reroute(item):
+            print(f"ERROR: {item} NOT FOUND IN THE CONFIGURATION! LOADING DEFAULT CONFIGURATION"); 
+            return Configuration(); 
+
+        if configuration.HOST_IP == None: return error_reroute("HOST_IP"); 
+        elif configuration.PORT == None: return error_reroute("PORT"); 
+
+        print("Configuration Importation Successful."); 
+        return configuration; 
 
     @staticmethod
     def generate_config(): 
