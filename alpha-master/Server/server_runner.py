@@ -27,7 +27,7 @@ recognizer = speech_recognition_module.Recognizer();
 
 voice_commands = list(); 
  
-HOST = "192.168.1.151"; #"192.168.1.141"  # Standard loopback interface address (localhost)
+HOST = "192.168.1.141"; #"192.168.1.141"  # Standard loopback interface address (localhost)
 PORT = 42069  # Port to listen on (non-privileged ports are > 1023)
 ACK_TEXT = 'text_received'; 
 
@@ -108,7 +108,7 @@ def fishtank_listener(conn:socket.socket):
 
     global voice_commands;  
 
-    loop_response = listener.voice_recognition_detect_loop(conn, voice_commands, recognizer, ["fish tank", "fishtank"], 3, exit_commands=["stop", "exit"]); 
+    loop_response = listener.voice_recognition_detect_loop(conn, voice_commands, recognizer, ["fish tank", "fishtank"], 10, exit_commands=["stop", "exit"]); 
     if loop_response.result == listener.Result.SUCCESS:
         
         text = "how may I help?"; 

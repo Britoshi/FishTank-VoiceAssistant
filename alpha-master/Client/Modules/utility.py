@@ -28,7 +28,7 @@ class Configuration(object):
  
     def __init__(self, default:bool = True):
         if default:   
-            self.HOST_IP = "192.168.1.151"; 
+            self.HOST_IP = "192.168.1.101"; 
             self.PORT = "42069"; 
         else:
             self.HOST_IP = None; 

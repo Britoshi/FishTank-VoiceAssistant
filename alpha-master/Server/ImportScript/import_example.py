@@ -1,7 +1,5 @@
 from calendar import month_name
-from datetime import datetime
-
-from Server.Core.command_listener import VoiceCommand; 
+from datetime import datetime 
 
 def tell_time(spoken_sentence, command): 
     time = datetime.now(); 
@@ -20,7 +18,7 @@ def tell_time(spoken_sentence, command):
 
     return (1, "it is " + str(hour) + " " + str(minute)); 
 
-def play_music(stn, cmd:VoiceCommand):
+def play_music(stn, cmd):
     cmd.script.play(); 
 
 def tell_calendar(spoken_sentence, command): 
