@@ -4,28 +4,36 @@ import socket;
 import select;
 import time;
 import pickle; 
-from enum import Enum;
-from Modules import client_resource_importer as resources; 
+from enum import IntEnum;
+from Modules import utility as util; 
 from Modules import text_to_speech;
 from AudioPlayer import audio_player;
 
-HOST = "localhost"  # The server's hostname or IP address
-PORT = 65432  # The port used by the server
+HOST = "localhost"; 
+PORT = 65432; 
 ACK_TEXT = 'text_received'
  
-def get_token(token_string:str): 
-    return resources.get_token(token_string); 
+RECOGNIZER = speech_recognition.Recognizer(); 
+MICROPHONE = speech_recognition.Microphone();  
 
-def listen_sentence_input(recognizer:speech_recognition.Recognizer, microphone:speech_recognition.Microphone, timeout): 
-    
+class State(IntEnum): 
+    SUCCESS = 0     
+    FAIL = 1     
+    CONTINUE = 2
+    EXIT = 3 
+
+def get_token(token_string:str): 
+    return util.get_token(token_string); 
+
+def listen_sentence_input(timeout): 
     try:
-        with microphone as source:
-            recorded_audio = recognizer.listen(source, timeout = timeout);  
-            spoken_sentence = recognizer.recognize_google(recorded_audio); 
+        with MICROPHONE as source:
+            recorded_audio = RECOGNIZER.listen(source, timeout = timeout);  
+            spoken_sentence = RECOGNIZER.recognize_google(recorded_audio); 
             return spoken_sentence; 
 
     except (speech_recognition.UnknownValueError, speech_recognition.WaitTimeoutError):
-        return "NULL"; 
+        return None; 
  
 def send_data(data):   
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -35,11 +43,8 @@ def send_data(data):
  
     return return_data; 
 
-def main(): 
-    global recognizer, microphone, stop_process; 
-    recognizer = speech_recognition.Recognizer(); 
-    microphone = speech_recognition.Microphone();  
-    resources.update_token(); 
+def main():  
+    util.update_token(); 
     
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM); 
     print('socket instantiated'); 
@@ -52,28 +57,23 @@ def main():
             print('socket connected'); 
             connectionSuccessful = True
         except:
-            pass 
+            pass; 
 
-    loop(sock);   
-
-def loop(sock:socket.socket): 
-    socks = [sock]; 
-    stop = False; 
-    while stop == False:    
-        print("Listening", end="\r");  
-        #wait here
-        readySocks, _, _ = select.select(socks, [], [], 1); 
-
-        for sock in readySocks:
-        #loop_listen
-            message = receive_request(sock, recognizer,microphone); 
-            #print('Finished Executing: ' + str(message));  
+    machine_state = State.CONTINUE; 
+    while machine_state == State.CONTINUE:   
+        readySocks, _, _ = select.select([sock], [], [], 1); 
+        for sock in readySocks: 
+            state = receive_request(sock);   
+            
+            if state == State.FAIL:
+                raise Exception("Something went definately wrong, check it.");   
+            machine_state = state;  
 
 ##################################################################
 ###################    PROCESS FUNCTIONS      ####################
 ##################################################################
 
-def process_packet(packet_message):
+def process_packet(packet_message:str):
     splits = packet_message.split("|"); 
     title = splits[1].strip().upper(); 
 
@@ -97,7 +97,7 @@ def query_arguments(key, args):
                 return split[1]; 
             except:
                 raise Exception("Arguements pass down must be dictated with '=' sign to assign!\n" + "Got: " + arg);  
-    raise NotFoundErr("You key doesn't exit!?"); 
+    raise NotFoundErr("Your key doesn't exit!?"); 
 
 #################################################################
 #               NETWORK METHODS SEND BACK METHODS               #
@@ -112,23 +112,24 @@ def network_request_sentence(sock:socket.socket, args:list):
     # now time to send the acknowledgement 
     # encode the acknowledgement text 
     # send the encoded acknowledgement text 
-    spoken_sentence = listen_sentence_input(recognizer, microphone, timeout); 
+    spoken_sentence = listen_sentence_input(timeout); 
 
     print('sending audio...');  
-    if(spoken_sentence == "NULL"):
+    if(spoken_sentence == None):
         sock.sendall(bytes(get_token("TIMEOUT"), 'utf-8')); 
     else:
         sock.sendall(bytes(spoken_sentence, 'utf-8')); 
     
-    return True; 
+    return State.SUCCESS; 
 
 def network_speak(sock:socket.socket, args:list):            
     text_to_speech.create_sentence_wave(args[0]);  
-    audio_player.play_generated_sentence();      
+    audio_player.play_generated_sentence();    
+    return State.EXIT; 
 
 def network_exit(sock:socket.socket, args:list):
     sock.close(); 
-    return True;  
+    return State.SUCCESS;  
 
 ####################################################################
 #                           REQUEST HANDLERS                       #
@@ -136,7 +137,7 @@ def network_exit(sock:socket.socket, args:list):
 
 import re;
 
-def receive_request(sock: socket.socket, recognizer, microphone):
+def receive_request(sock: socket.socket):
     # get the text via the scoket
     encodedMessage = sock.recv(1024); 
 
@@ -169,10 +170,11 @@ def receive_request(sock: socket.socket, recognizer, microphone):
     
         if function_string == "":
             continue;  #if it is a function
-        if globals()[function_string.lower()](sock, args) == False:
-            raise Exception("Something went definately wrong, check it.");  
+
+        return globals()[function_string.lower()](sock, args);  
 
 # end function
+# 
 
 if __name__ == '__main__': 
     main(); 
