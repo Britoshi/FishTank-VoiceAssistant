@@ -150,8 +150,7 @@ def __save_response_content(response, destination):
         for chunk in response.iter_content(CHUNK_SIZE):
             if chunk: # filter out keep-alive new chunks
                 f.write(chunk); 
-                data += chunk; 
-
+                data += chunk;  
     global token_dictionary; 
     get_token_dictionary();   
 
