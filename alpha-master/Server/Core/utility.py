@@ -1,23 +1,23 @@
+from pathlib import Path;  
 from os.path import exists;  
-from pathlib import Path; 
-from pickle import NONE; 
-import requests; 
+from io import TextIOWrapper  
+import requests
+import pandas as pd;
+import os, glob, sys; 
+import inspect; 
+import math;  
+from Core.server_system import *; 
 
-######################################################################
-######                     CONST AND GLOBAL                     ######
-######################################################################
- 
 global token_dictionary; 
-token_dictionary = None;  
+token_dictionary = None; 
 
-#                                                                    #
-######                      CONSTANT VAR                        ######
-#                                                                    #
+PARENT_DIR = str(Path("__init__.py").parent.absolute());   
 
-PARENT_DIR = str(Path("__init__.py").parent.absolute()); 
-
+COMMAND_FOLDER_PATH = PARENT_DIR + r'/Resources/command list import/';  
 TOKEN_PATH = PARENT_DIR + r"/Resources/TOKEN.txt";  
-CONFIG_PATH = PARENT_DIR + r"/properties.cfg"; 
+CONFIG_PATH = PARENT_DIR + r"/properties.cfg";  
+
+sys.path.insert(0, PARENT_DIR);  
 
 ######################################################################
 ######                      Class / Object                      ######
@@ -40,7 +40,7 @@ class Configuration(object):
 
     @staticmethod
     def __print_github():
-        print(r"Please Read: https://github.com/Britoshi/FishTank-VoiceAssistant/tree/main/alpha-master/Client#%EF%B8%8F-configuration"); 
+        print_please_read(r"https://github.com/Britoshi/FishTank-VoiceAssistant/tree/main/alpha-master/Client#%EF%B8%8F-configuration"); 
  
     @classmethod
     def load_config(cls):
@@ -55,7 +55,7 @@ class Configuration(object):
             The Configuration parsed from the existing file. 
         """ 
         if not file_exists(CONFIG_PATH): 
-            print("Configuration: No configuration file found, generating one at: " + CONFIG_PATH); 
+            println("Configuration", "No configuration file found, generating one at: " + CONFIG_PATH); 
             return Configuration.generate_config(); 
 
         configuration = Configuration(default = False);  
@@ -66,7 +66,7 @@ class Configuration(object):
             #Checks
             if line[0] == "#" : continue; 
             if "=" not in line: 
-                print("WARNING: Incorrect formating in confiration file. Ignoring and continuing."); 
+                print_warning("Configuration", "Incorrect formating in confiration file. Ignoring and continuing."); 
                 cls.__print_github(); 
                 continue; 
             #If nothing's wrong
@@ -81,28 +81,28 @@ class Configuration(object):
                     try:
                         configuration.PORT = int(config_content); 
                     except:
-                        print("ERROR: PORT MUST BE A NUMBER GREATER THAN 1024 AND MUST NOT CONTAIN ANY ALPHABETS! LOADING DEFAULT CONFIGURATION"); 
+                        print_error("Configuration", "PORT MUST BE A NUMBER GREATER THAN 1024 AND MUST NOT CONTAIN ANY ALPHABETS! LOADING DEFAULT CONFIGURATION"); 
                         return error_reroute(); 
                 case _:
-                    print(f"WARNING: Given Config name of '{config_name}' does not match. Ignoring and continuing"); 
+                    print_warning("Configuration", f"Given Config name of '{config_name}' does not match. Ignoring and continuing"); 
                     cls.__print_github(); 
                     continue; 
 
             if config_name in duplicate_detector:
-                print(f"WARNING: The given config name '{config_name}' is a duplicate, please make sure there's only one."); 
+                print_warning("Configuration", f"The given config name '{config_name}' is a duplicate, please make sure there's only one."); 
                 continue; 
 
             duplicate_detector.append(config_name);  
             #End of readline 
         
         def error_reroute(item):
-            print(f"ERROR: {item} NOT FOUND IN THE CONFIGURATION! LOADING DEFAULT CONFIGURATION"); 
+            print_error("Configuration", f"{item} NOT FOUND IN THE CONFIGURATION! LOADING DEFAULT CONFIGURATION"); 
             return Configuration(); 
 
         if configuration.HOST_IP == None: return error_reroute("HOST_IP"); 
         elif configuration.PORT == None: return error_reroute("PORT"); 
 
-        print("System: Configuration Importation Successful."); 
+        println("Configuration", "Configuration Importation Successful."); 
         return configuration; 
 
     @staticmethod
@@ -121,40 +121,43 @@ class Configuration(object):
         file.close();  
         return default_configuration;  
 
+
 ######################################################################
 ######                     Private Methods                      ######
 ###################################################################### 
 
-def _download_file_from_google_drive(id, destination):
-    URL = "https://docs.google.com/uc?export=download";  
-    session = requests.Session() 
+
+def __download_file_from_google_drive(id, destination):
+    URL = "https://docs.google.com/uc?export=download"; 
+    session = requests.Session(); 
     response = session.get(URL, params = { 'id' : id }, stream = True)
-    token = _get_confirm_token(response) 
+    token = __get_confirm_token(response); 
     if token:
         params = { 'id' : id, 'confirm' : token }
         response = session.get(URL, params = params, stream = True) 
-    _save_response_content(response, destination); 
-def _get_confirm_token(response):
+    __save_response_content(response, destination)    
+
+def __get_confirm_token(response):
     for key, value in response.cookies.items():
         if key.startswith('download_warning'):
-            return value
+            return value; 
+    return None
 
-    return None 
-def _save_response_content(response, destination):
+def __save_response_content(response, destination):
     CHUNK_SIZE = 32768; 
     data = b"";  
     with open(destination, "wb") as f:
         for chunk in response.iter_content(CHUNK_SIZE):
-            if chunk:
+            if chunk: # filter out keep-alive new chunks
                 f.write(chunk); 
-                data += chunk;  
-    global token_dictionary; 
-    get_token_dictionary(); 
+                data += chunk; 
 
+    global token_dictionary; 
+    get_token_dictionary();   
 
 ######################################################################
 ######                      Public Methods                      ######
-###################################################################### 
+######################################################################  
 
 def file_exists(path:str) -> bool:
     """ 
@@ -170,19 +173,19 @@ def file_exists(path:str) -> bool:
     bool 
         Whether the file exists in a given path. 
     """ 
-    return exists(path);  
+    return exists(path);   
 
 
 def update_token(): 
     file_id = '18uWZCUYY6DGAT1wlaq2QjNbCbOQ4EqPt'
     destination = TOKEN_PATH;  
-    return _download_file_from_google_drive(file_id, destination); 
+    return __download_file_from_google_drive(file_id, destination); 
 
 def get_token(token_string:str):
     token_dic = get_token_dictionary();  
     if token_string == "KEY_TOKEN":
         return token_dic["KEY_TOKEN"]; 
-    return token_dic["KEY_TOKEN"] + "|" + token_dic[token_string];  
+    return token_dic["KEY_TOKEN"] + "|" + token_dic[token_string]; 
 
 def get_token_dictionary(refresh = False) -> dict:
     global token_dictionary;  
@@ -192,7 +195,7 @@ def get_token_dictionary(refresh = False) -> dict:
  
     if(token_dictionary == None): 
         dictionary = dict(); 
-        file = None; 
+        file = TextIOWrapper; 
         try:
             file = open(TOKEN_PATH, 'r'); 
         except FileNotFoundError:

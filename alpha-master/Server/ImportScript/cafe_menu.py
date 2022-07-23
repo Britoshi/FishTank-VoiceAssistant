@@ -1,8 +1,9 @@
 from bs4 import BeautifulSoup
 from urllib.request import urlopen, Request
+from Core.command import *; 
 
 
-def menu_today(spoken_sentence, command):
+def menu_today(spoken_sentence:str, command: VoiceCommand, args: list):
     
 
     """
@@ -36,7 +37,4 @@ def menu_today(spoken_sentence, command):
     for name in names:
         output += name + ", "
     output = output[:-2]
-    return (1, output) 
-
-#if __name__ == "__main__":
-    #print(menu_today("yes", "for"))
+    return (1, output)  

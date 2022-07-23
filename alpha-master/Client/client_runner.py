@@ -62,8 +62,8 @@ def main():
         except:
             pass; 
 
-    machine_state = State.CONTINUE; 
-    while machine_state == State.CONTINUE:   
+    machine_state = State.CONTINUE;  
+    while True: #machine_state != State.EXIT:   
         readySocks, _, _ = select.select([sock], [], [], 1); 
         for sock in readySocks: 
             state = receive_request(sock);   

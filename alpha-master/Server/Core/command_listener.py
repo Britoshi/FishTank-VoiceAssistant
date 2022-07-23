@@ -1,180 +1,8 @@
-from dataclasses import replace
-from sre_constants import SUCCESS
-from tokenize import Token
-from setuptools import Command
-import speech_recognition;   
-from Modules import weather_module; 
-from enum import Enum;
-from enum import IntEnum; 
-from Modules import resource_importer as resources; 
-
-class Result(IntEnum): 
-    SUCCESS = 1     
-    FAIL = 2        
-    CONTINUE = 3    
-    EXIT = 4        
-    TIMEOUT = 5     
-
-class CommandType(IntEnum):
-    STRICT = 1; #"STRICT" 
-    FREE = 0; #"FREE" 
-    
-    def __str__(self):
-        if self == CommandType.STRICT:
-            return "Strict"; 
-        elif self == CommandType.FREE:
-            return "Free";  
-
-def parse_command_type(string:str):
-    string = string.upper(); 
-    print(string); 
-    if(string == "STRICT"):
-        return CommandType.STRICT; 
-    elif(string == "FREE"):
-        return CommandType.FREE; 
-
-class VoiceCommand:
-    def __init__(self, priority: int, name: str, trigger_word, function, type: CommandType, query_list: list = [], script = None):
-        self.priority = priority; 
-        self.name = name; 
-        self.trigger_word = trigger_word; 
-        self.function = function; 
-        self.type:CommandType = type; 
-        
-        #most likely optional
-        self.query_list = query_list; 
-        self.queryable =  len(query_list) != 0; 
-        self._next_word = ""; 
-        self.script = script; 
-    
-    def check_strict_sentence(self, spoken_sentence:str):
-        if(self.type != CommandType.STRICT):
-            raise Exception("A strict search is being done for a free type!!!"); 
-        
-        sentence = spoken_sentence.replace(" ", '');  
-        keyword_index = sentence.rindex(self.trigger_word); 
-
-        if(keyword_index != 0):
-            return Result.FAIL; 
-
-        length = len(sentence); 
-        length_to_word = len(sentence[:keyword_index + len(self.trigger_word)]); 
-        diff = length - length_to_word;  
-        if(diff >= 3):
-            return Result.FAIL;   
-        
-        return Result.SUCCESS;   
-
-    class QueryResult:
-        EMPTY = 0
-        SUCCESS = 1
-        FAIL = 2
-        ERROR = 3
-        CONTINUE = 4
-
-    def queryable(self):
-        return self.queryable; 
-
-
-    def query_for_words(self, spoken_sentence:str):  
-        command_index = spoken_sentence.index(self.trigger_word) + len(self.trigger_word); 
-        sentence = " " + spoken_sentence[command_index:].strip(); 
-        m_sentence = sentence + ""; 
-
-        if len(sentence) <= 1: #not long enough, probably not the right command.
-            print("failed from not long enough sentence")
-            return (self.QueryResult.FAIL, None); 
-
-        if not self.queryable:
-            print("ERROR: Don't run this when the command is not built for it???"); 
-            return (self.QueryResult.ERROR, None);  
-
-        queried_words = list(); 
-        keywords = list();  
-        [queried_words.append("") for _ in self.query_list]; #add how many ever you need 
-        
-        # now you have to iterate through what's in between.
-        for i in range(len(self.query_list)): 
-            query: list = self.query_list[i]; 
-            if(len(query) == 0):
-                print("ERROR: EMPTY QUERY???"); 
-                return (self.QueryResult.ERROR, None); 
- 
-            for j in range(len(query)): 
-                word = " " + query[j] + " "; 
-                if word in m_sentence: 
-                    index = m_sentence.index(word); 
-
-                    replacement = "_" * len(word);  
-                    m_sentence = m_sentence.replace(word, replacement, 1);  
-
-                    keywords.append((word, index)); 
-                    break; 
-
-            # If we found nothing, then it failed
-            if len(keywords) != i + 1:
-                print("failed from finding nothing")
-                return (self.QueryResult.FAIL, None); 
-            
-
-            #Apply the queried words
-            if i != 0 and len(self.query_list) != 1: 
-                last_index = keywords[i - 1][1] + len(keywords[i - 1][0]); 
-                current_index = keywords[i][1];  
-
-                queried_words[i - 1] = sentence[last_index: current_index].strip();  
-
-            # If there's only one to go for, then just return the rest in the line.
-            if len(self.query_list) == 1 or i == len(self.query_list) - 1: 
-                current_index = keywords[i][1] + len(keywords[i][0]); 
-                queried_words[i] = sentence[current_index:]; 
-                return (self.QueryResult.SUCCESS, queried_words); 
-
-            if queried_words[i - 1] == "" and i != 0:
-                print('failed from the quried words being empty')
-                return (self.QueryResult.FAIL, None);   
-                
-        return (self.QueryResult.SUCCESS, queried_words); 
-
-
-    def __lt__(self, other): 
-        condition1 = self.trigger_word < other.trigger_word; 
-        condition2 = self.priority < other.priority; 
-        condition3 = int(self.type) < int(self.type); 
-        return condition1 and condition2 and condition3; 
-        
-    def __le__(self, other):
-        condition1 = self.trigger_word <= other.trigger_word; 
-        condition2 = self.priority <= other.priority; 
-        condition3 = int(self.type) <= int(self.type); 
-        return condition1 and condition2 and condition3; 
-
-    def __eq__(self, other):
-        condition1 = self.trigger_word == other.trigger_word; 
-        condition2 = self.priority == other.priority; 
-        condition3 = int(self.type) == int(self.type); 
-        return condition1 and condition2 and condition3; 
-
-    def __ne__(self, other):
-        condition1 = self.trigger_word != other.trigger_word; 
-        condition2 = self.priority != other.priority; 
-        condition3 = int(self.type) != int(self.type); 
-        return condition1 and condition2 and condition3; 
-
-    def __gt__(self, other):
-        condition1 = self.trigger_word > other.trigger_word; 
-        condition2 = self.priority > other.priority; 
-        condition3 = int(self.type) > int(self.type); 
-        return condition1 and condition2 and condition3; 
-
-    def __ge__(self, other):
-        condition1 = self.trigger_word >= other.trigger_word; 
-        condition2 = self.priority >= other.priority; 
-        condition3 = int(self.type) >= int(self.type); 
-        return condition1 and condition2 and condition3;  
-        
-    def __str__(self):
-        return f"Prio: {self.priority},\t Name/Type: {self.name},\t Command Type: {self.type},\t Trigger Word: {self.trigger_word},\t Query List: {self.query_list}."
+import speech_recognition;    
+from Core import utility as util; 
+from Core.command import *; 
+import socket;   
+from Core.server_system import *; 
 
 # what is the wheather in irvine in us
 #0 
@@ -190,30 +18,20 @@ class Response:
 #               Command Functions               #
 #################################################
 
-def _speak_command_check_weather(spoken_sentence, command): 
-    return (Result.SUCCESS, weather_module.get_irvine_weather()); 
-
-def _speak_command_return(spoken_sentence, command):
-    return (Result.EXIT, ""); 
-
-def _query_command_weather(spoken_sentence, command, args):
-    return (Result.SUCCESS, weather_module.get_weather(args[0]));  
-
 #################################################
 #          NETWORK HANDLING SOCKETS             #
 ################################################# 
  
-import socket;   
 
 def get_token(token_string:str): 
-    return resources.get_token(token_string); 
+    return util.get_token(token_string); 
 
 def request_response_from_clients(sock:socket.socket, timeout):
     sentence = get_token("REQUEST_SENTENCE") + "|TIMEOUT=" + str(timeout); 
     encodedMessage = bytes(sentence, 'utf-8'); 
     sock.sendall(encodedMessage); 
 
-    print("receiving packets...", end = " "); 
+    println("NETWORK", "receiving packets...", end = " "); 
     data = sock.recv(1024 * 4);         
     spoken_sentence = data.decode("utf-8");  
 
@@ -221,6 +39,7 @@ def request_response_from_clients(sock:socket.socket, timeout):
         return None;  
     
     print(" done");   
+    
     return spoken_sentence;   
 
 #################################################
@@ -253,12 +72,12 @@ def get_response(spoken_sentence, voice_commands:list):
                 raise Exception("Something went terribly wrong in Query Commands", query_result); 
         #Non Queryable
         else: 
-            if voice_command.type == CommandType.STRICT:
+            if voice_command.type == VoiceCommand.Type.STRICT:
                 strict_check_result = voice_command.check_strict_sentence(spoken_sentence); 
                 if strict_check_result == Result.FAIL:
                     continue;    
                 
-            command_result, response_text = voice_command.function(spoken_sentence, voice_command); 
+            command_result, response_text = voice_command.function(spoken_sentence, voice_command, []); 
             if command_result == Result.FAIL:
                 continue;  
 
@@ -272,8 +91,7 @@ def request_sentence(socket, timeout):
 
 def voice_recognition_detect(socket, voice_commands:list, timeout = 5): 
     
-    spoken_sentence = request_sentence(socket, timeout);   
-
+    spoken_sentence = request_sentence(socket, timeout); 
     if spoken_sentence == None:
         return Response(Result.TIMEOUT, "Timed Out", spoken_sentence, "N/A"); 
     

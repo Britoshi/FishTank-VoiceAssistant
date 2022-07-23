@@ -1,18 +1,18 @@
 import threading; 
 import time;  
  
-from Modules import resource_importer, text_to_speech; 
+from Core import utility as util; 
+from Modules import text_to_speech; 
 from AudioPlayer import audio_player; 
 from Core import command_listener as listener; 
 from enum import Enum; 
+from Core.server_system import *; 
 
 import socket;  
 import select;  
-import time;    
-import pickle;  
+import time;     
 
-import speech_recognition as speech_recognition_module;  
-import pyaudio; 
+import speech_recognition as speech_recognition_module;   
 
 class State(Enum):
     CONTINUE = 1
@@ -26,9 +26,12 @@ waiting_for_speech = False;
 recognizer = speech_recognition_module.Recognizer();  
 
 voice_commands = list(); 
- 
-HOST = "192.168.1.141"; #"192.168.1.141"  # Standard loopback interface address (localhost)
-PORT = 42069  # Port to listen on (non-privileged ports are > 1023)
+
+CONFIG = util.Configuration.load_config(); 
+
+HOST = CONFIG.HOST_IP; #"192.168.1.141"  # Standard loopback interface address (localhost)
+PORT = CONFIG.PORT  # Port to listen on (non-privileged ports are > 1023)
+
 ACK_TEXT = 'text_received'; 
 
 #############################################
@@ -90,7 +93,7 @@ def thread_socket_listener(conn:socket.socket):
 
 def output_speech(sock:socket.socket, text: str): 
     print("Assistant:", input_speech);       
-    sock.sendall(bytes(resource_importer.get_token("CLIENT_SPEAK") + "|" + text, "utf-8")); 
+    sock.sendall(bytes(util.get_token("CLIENT_SPEAK") + "|" + text, "utf-8")); 
 
 def fishtank_listener(conn:socket.socket):
 
@@ -135,20 +138,19 @@ def listener_function(conn:socket):
 def initialize_socket(): 
     # instantiate a socket object
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print('socket instantiated') 
-    sock.bind((HOST, PORT))
-    print('socket binded') 
+    println("NETWORK",'Socket Instantiated') 
+    sock.bind((HOST, PORT)) 
     sock.listen()
-    print('socket now listening') 
+    println("NETWORK",'Socket Now Listening') 
     conn, addr = sock.accept()#wait
-    print('socket accepted, got connection object')
+    println("NETWORK",'Socket Accepted, Got Connection Object')
 
     return (sock, conn, addr); 
 
 def main(): 
     global stop_process, voice_commands;  
-    voice_commands = resource_importer.parse_commands(); 
-    resource_importer.update_token(); 
+    voice_commands = listener.VoiceCommand.import_commands(); 
+    util.update_token(); 
 
     thread_main_listener = threading.Thread(target=assistant_speech_processor, args=[]); 
     thread_main_listener.start(); 
@@ -169,7 +171,7 @@ def main():
 
     thread_main_listener.join();  
 
-    conn.sendall(bytes(resource_importer.get_token("STOP_SIGNAL"), "utf-8")); 
+    conn.sendall(bytes(util.get_token("STOP_SIGNAL"), "utf-8")); 
     #socket_thread.join(); 
 
 # end function 

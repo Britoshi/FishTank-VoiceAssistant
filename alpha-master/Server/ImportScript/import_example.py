@@ -1,7 +1,8 @@
 from calendar import month_name
 from datetime import datetime 
+from Core.command import *;
 
-def tell_time(spoken_sentence, command): 
+def tell_time(spoken_sentence:str, command: VoiceCommand, args: list): 
     time = datetime.now(); 
 
     minute = time.minute; 
@@ -21,7 +22,7 @@ def tell_time(spoken_sentence, command):
 def play_music(stn, cmd):
     cmd.script.play(); 
 
-def tell_calendar(spoken_sentence, command): 
+def tell_calendar(spoken_sentence:str, command: VoiceCommand, args: list): 
     date = datetime.now().date(); 
      
 
@@ -55,7 +56,7 @@ def tell_calendar(spoken_sentence, command):
 
     return (1, f"Today is {MONTH_NAME[month]} {day}."); 
 
-def tell_date(_, _2): 
+def tell_date(spoken_sentence:str, command: VoiceCommand, args: list): 
     date = datetime.now().date();   
     
     DAY_STRING = {
