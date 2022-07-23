@@ -1,11 +1,12 @@
 
 # 🐠 FISHTANK VOICE ASSISTANT: CLIENT 🐟
 
-This is a voice assistant program created for the Computer Science Laboratory in Concordia Univesity Irvine.
-This program has two parts, server
+This is a voice assistant client which will run along side with server. 
+The alpha rendition of the voice assistant client will simply 
 
 
 
-# ⚙️ CONFIGURATION
+
+
 
 
