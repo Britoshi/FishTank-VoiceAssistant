@@ -32,14 +32,24 @@ def request_response_from_clients(sock:socket.socket, timeout):
     sock.sendall(encodedMessage); 
 
     println("NETWORK", "receiving packets...", end = " "); 
-    data = sock.recv(1024 * 4);         
-    spoken_sentence = data.decode("utf-8");  
 
-    if get_token("TIMEOUT") in spoken_sentence:
+    data = sock.recv(1024 * 4);         
+    message = data.decode("utf-8");  
+
+    if get_token("KEY_TOKEN") not in message:
+        #received something that's not a valid packet; 
+        return None; 
+
+    if get_token("RETURN_REQUEST_SENTENCE") not in message:
+        #not valid
+        return None; 
+
+    if get_token("TIMEOUT") in message:
         return None;  
     
     print(" done");   
     
+    spoken_sentence = message.split("|")[-1];
     return spoken_sentence;   
 
 #################################################

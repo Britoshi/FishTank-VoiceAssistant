@@ -121,7 +121,10 @@ def network_request_sentence(sock:socket.socket, args:list):
     if(spoken_sentence == None):
         sock.sendall(bytes(get_token("TIMEOUT"), 'utf-8')); 
     else:
-        sock.sendall(bytes(spoken_sentence, 'utf-8')); 
+        message = get_token("KEY_TOKEN") + "|"; 
+        message += get_token("RETURN_REQUEST_SENTENCE") + "|"; 
+        message += spoken_sentence;  
+        sock.sendall(bytes(message, 'utf-8')); 
     
     return State.SUCCESS; 
 
