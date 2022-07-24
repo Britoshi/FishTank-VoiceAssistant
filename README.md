@@ -1,11 +1,11 @@
 
 # 🐠 FISHTANK VOICE ASSISTANT 🐟
-Welcome to documention of the FishTank Voice Assistant. This is a very scuffed documention
+Welcome to the documentation of the FishTank Voice Assistant. This is very scuffed documentation
 of how the voice assistant work.
-FishTank is created for the intention of it being use in the Computer Science Laboratory at the Concordia University Irvine. If used in a foreign environment results may vary.
+FishTank is created with the intention of it being used in the Computer Science Laboratory at the Concordia University Irvine. If used in a foreign environment results may vary.
 
-Fishtank Voice Assistant is very modular and easily customizable. Just by adding one line in a csv file you can create a new command for the voice assistant.
-If you're here to learn how to add commands, goto this 
+Fishtank Voice Assistant is very modular and easily customizable. Just by adding one line in a .csv file, you can create a new command for the voice assistant.
+If you're here to learn how to add commands, go to this 
 [page on how to add new commands](https://github.com/Britoshi/FishTank-VoiceAssistant/tree/main/alpha-master/Server#how-to-add-commands). 
 
 
@@ -32,8 +32,7 @@ There are two layers as of current.
 
 
 # Configuration
-Configuration file will be automatically generated if there is no 'properties.cfg' present
-in the root directory. This is currently more of a network configuration rather than anything else.
+The configuration file will be automatically generated if there are no 'properties.cfg' present in the root directory. This is currently more of a network configuration rather than anything else.
 
 This is what the config file should look like.
 ```

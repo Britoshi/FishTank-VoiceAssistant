@@ -38,7 +38,7 @@ It has two types corresponding to the integer value
 Type.STRICT = 1;
 Type.FREE = 0; 
 ```
-**Free Command** will be using the method of `if```` **```self.trigger_word```** ```in``` **```spoken_sentence```**.
+**Free Command** will be using the method of ```if``` **```self.trigger_word```** ```in``` **```spoken_sentence```**.
 If any instance of the trigger word can be found in a given sentence, then the voice request will pass the check.
 
 **Strict Command** requires the ```self.trigger_word``` to be the sole word in the ```spoken_sentence```.  
@@ -106,8 +106,8 @@ If you've decided to go for the second method, then you can ignore the two attri
 
 **Query List** will have a specific way of input. As specified in the [explanation](./#query-list) this is consist of a list of lists.
 
-**```,```**: The Comma will be used to add an optional word, resulting in the import list looking like: ```at, in``` -> ```["at", "in"]```
-**```|```**: The Pipe will be the separator for adding an additional query word adding a new list: ```at,in```**|**```around,at``` -> ```["at", "in"], ["around", "at"]`  
+**```,```**: The Comma will be used to add an optional word, resulting in the import list looking like: ```at, in``` -> ```["at", "in"]```  
+**```|```**: The Pipe will be the separator for adding an additional query word adding a new list: ```at,in```**|**```around,at``` -> ```["at", "in"], ["around", "at"]```
 
 Theoretically, you can add as many pipes and commas as you can, but for the sake of the performance, please do not do that.
 
