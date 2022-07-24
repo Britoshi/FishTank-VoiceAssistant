@@ -6,7 +6,7 @@ FishTank is created for the intention of it being use in the Computer Science La
 
 Fishtank Voice Assistant is very modular and easily customizable. Just by adding one line in a csv file you can create a new command for the voice assistant.
 If you're here to learn how to add commands, goto this 
-[page on how to add new commands](./alpha-master/Server#adding-new-commands). 
+[page on how to add new commands](https://github.com/Britoshi/FishTank-VoiceAssistant/tree/main/alpha-master/Server#how-to-add-commands). 
 
 
 ## How does it work?
