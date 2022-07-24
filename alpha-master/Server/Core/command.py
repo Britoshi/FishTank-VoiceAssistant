@@ -9,8 +9,7 @@ from Core.server_system import *;
 
 ######################################################################
 #####                       VOICE COMMAND                        #####
-###################################################################### 
-
+######################################################################  
 
 class Result(IntEnum): 
     SUCCESS = 1     
@@ -32,6 +31,10 @@ class VoiceCommand:
             return "Free";   
         
     @staticmethod
+    def __speak_set_script(_, cmd, __):
+        return (1, cmd.predetermined_speech); 
+
+    @staticmethod
     def parse_command_type(string:str):
         string = string.upper();  
         if(string == "STRICT"):
@@ -39,7 +42,7 @@ class VoiceCommand:
         elif(string == "FREE"):
             return VoiceCommand.Type.FREE; 
 
-    def __init__(self, priority: int, name: str, trigger_word, function, type: Type, query_list: list = [], script = None):
+    def __init__(self, priority: int, name: str, trigger_word, function, type: Type, query_list: list = [], script = None, predetermined_speech = None):
         self.priority = priority; 
         self.name = name; 
         self.trigger_word = trigger_word; 
@@ -51,6 +54,7 @@ class VoiceCommand:
         self.queryable =  len(query_list) != 0; 
         self._next_word = ""; 
         self.script = script; 
+        self.predetermined_speech = predetermined_speech; 
     
     def check_strict_sentence(self, spoken_sentence:str):
         if(self.type != self.Type.STRICT):
@@ -181,31 +185,38 @@ class VoiceCommand:
         os.chdir(COMMAND_FOLDER_PATH)
         for file in glob.glob("*.csv"): 
             df = pd.read_csv(file, sep=',');   
-            try:
-                for row in df.iterrows(): 
-                    row = row[1];  
-                    priority:int = int(row["priority"]); 
-                    name:str = row["type"]; 
+            #try:
+            for row in df.iterrows(): 
+                row = row[1];  
+                priority:int = int(row["priority"]); 
+                name:str = row["type"]; 
 
-                    trigger_word_string:str = row["trigger words"]; 
-                    trigger_words = trigger_word_string.split(','); 
+                trigger_word_string:str = row["trigger words"]; 
+                trigger_words = trigger_word_string.split(','); 
 
-                    command_type = VoiceCommand.parse_command_type(row["command type"]); 
+                command_type = VoiceCommand.parse_command_type(row["command type"]); 
 
-                    query_list = list();    
+                query_list = list();    
 
-                    query_list_string = row["query list"];              
-                    if type(query_list_string) != float:
-                        query_separate = query_list_string.split("|");  
-                        for separated in query_separate: 
-                            query_list.append(list(separated.split(',')));  
+                query_list_string = row["query list"];              
+                if type(query_list_string) != float:
+                    query_separate = query_list_string.split("|");  
+                    for separated in query_separate: 
+                        query_list.append(list(separated.split(',')));  
 
 
-                    function_string:str = row["function"]; 
-                    script_name = row["import script name"]; 
+                function_string:str = row["function"];  
+                function = None; 
+                function_script = None; 
+                script_object = None; 
+                predetermined_speech = None; 
 
-                    function_script = None; 
-                    script_object = None; 
+                #This checks if the command is a simple speak one sentence
+                if "\"" in function_string:
+                    function = VoiceCommand.__speak_set_script; 
+                    predetermined_speech = function_string.replace("\"", ""); 
+                else:
+                    script_name = row["import script name"];  
 
                     if type(script_name) != float:
                         if script_name not in script_dictionary.keys():
@@ -226,20 +237,20 @@ class VoiceCommand:
                         
                     function = getattr(function_script, function_string); 
 
-                    #Warning Check 1
-                    if command_type == VoiceCommand.Type.STRICT and len(query_list) != 0:
-                        print_warning("Voice Command","Query Command should not have a Command Type of STRICT. Changing it to FREE."); 
-                        command_type = VoiceCommand.Type.FREE; 
+                #Warning Check 1
+                if command_type == VoiceCommand.Type.STRICT and len(query_list) != 0:
+                    print_warning("Voice Command","Query Command should not have a Command Type of STRICT. Changing it to FREE."); 
+                    command_type = VoiceCommand.Type.FREE; 
 
-                    for trigger_word in trigger_words: 
-                        trigger_word = trigger_word.strip(); 
-                        command = VoiceCommand(priority=priority, name=name, trigger_word=trigger_word, function=function, type=command_type,query_list=query_list, script= script_object);  
-                        commands.append(command); 
+                for trigger_word in trigger_words: 
+                    trigger_word = trigger_word.strip(); 
+                    command = VoiceCommand(priority=priority, name=name, trigger_word=trigger_word, function=function, type=command_type,query_list=query_list, script= script_object, predetermined_speech=predetermined_speech);  
+                    commands.append(command); 
                         
-            except Exception as e:
-                print_warning("Voice Command", f"You messed up with the formating with {file}. Fix it and rerun, it is skipping...");
-                print("Given Error Message: " + e);   
-                continue; 
+            #except Exception as e:
+            #    print_warning("Voice Command", f"You messed up with the formating with {file}. Fix it and rerun, it is skipping...");
+            ##    print("Given Error Message: " + e);   
+            #    continue; 
 
         commands.sort(); 
         println("Voice Command", "Command Importation Successful.")

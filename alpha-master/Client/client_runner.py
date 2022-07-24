@@ -88,7 +88,7 @@ def process_packet(packet_message:str):
     if "*ARGS" not in title:
         return (title, list(), function_string);  
 
-    args = splits[2].split('/'); 
+    args = splits[2].split(','); 
     return (title, args, function_string); 
 
 def query_arguments(key, args):

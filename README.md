@@ -38,7 +38,7 @@ in the root directory. This is currently more of a network configuration rather 
 This is what the config file should look like.
 ```
 #FishTank Voice Assistant Configuration Version 0.1
-HOST_IP=localhost
+HOST_IP=192.168.1.101
 PORT=42069
 ```
 As of config file format version 0.1, there are only two properties. They are very self
