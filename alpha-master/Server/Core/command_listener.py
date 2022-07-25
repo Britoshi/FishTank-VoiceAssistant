@@ -49,7 +49,7 @@ def request_response_from_clients(sock:socket.socket, timeout):
     
     print(" done");   
     
-    spoken_sentence = message.split("|")[-1];
+    spoken_sentence = message.split("|")[-1]; 
     return spoken_sentence;   
 
 #################################################

@@ -1,0 +1,2 @@
+priority,type,function,command type,query list,import script name,trigger words
+9999,Utility,__reload_commands,Strict,,core_commands_do_not_delete,"reload all commands, reload all command, reimport all command, reimport all commands"

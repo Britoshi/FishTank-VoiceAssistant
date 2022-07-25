@@ -24,6 +24,7 @@ sys.path.insert(0, PARENT_DIR);
 ######################################################################
 
 class Configuration(object): 
+    
     def __init__(self, default:bool = True):
         if default:   
             self.HOST_IP = "192.168.1.101"; 
@@ -45,7 +46,7 @@ class Configuration(object):
     @classmethod
     def load_config(cls):
         """ 
-        Parses the configuration file and return it as usuable dictionary object.  
+        Parses the configuration file and return it as usable dictionary object.  
 
         If the configuration file does not exist, the configuration file is automatically generated.
 
@@ -66,7 +67,7 @@ class Configuration(object):
             #Checks
             if line[0] == "#" : continue; 
             if "=" not in line: 
-                print_warning("Configuration", "Incorrect formating in confiration file. Ignoring and continuing."); 
+                print_warning("Configuration", "Incorrect formatting in configuration file. Ignoring and continuing."); 
                 cls.__print_github(); 
                 continue; 
             #If nothing's wrong

@@ -7,4 +7,5 @@ priority,type,function,command type,query list,import script name,trigger words
 1,Date,tell_calendar,Free,,import_example,"what is the date, what date is it"
 1,Food,menu_today,Free,,cafe_menu,"what's on the menu today, tell me the menu today"
 1,Joke,"""Because seven eight nine.""",Free,,,why was 9 scared of 7
-1,Math,power_two_numbers,Free,of|to the,basic_commands,The power of
+1,Math,power_two_numbers,Free,is|^,basic_commands,what is
+1,Math,add_two_numbers,Free,"is|+,plus",basic_commands,what is

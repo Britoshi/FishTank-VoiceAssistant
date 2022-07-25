@@ -17,6 +17,7 @@ class Result(IntEnum):
     CONTINUE = 3    
     EXIT = 4        
     TIMEOUT = 5     
+    RELOAD = 6
 
 class VoiceCommand:
 
@@ -60,7 +61,7 @@ class VoiceCommand:
         if(self.type != self.Type.STRICT):
             raise Exception("A strict search is being done for a free type!!!"); 
         
-        sentence = spoken_sentence.replace(" ", '');  
+        sentence = spoken_sentence.strip();  
         keyword_index = sentence.rindex(self.trigger_word); 
 
         if(keyword_index != 0):
@@ -85,16 +86,22 @@ class VoiceCommand:
         return self.queryable; 
 
     def query_for_words(self, spoken_sentence:str):  
+
+        if not self.queryable:
+            print_error("Voice Command","Don't run this when the command is not built for it???"); 
+            return (self.QueryResult.ERROR, None);  
+
         command_index = spoken_sentence.index(self.trigger_word) + len(self.trigger_word); 
         sentence = " " + spoken_sentence[command_index:].strip(); 
+ 
+        for keyw in self.query_list[0]:
+            if keyw in self.trigger_word: sentence = spoken_sentence; 
+
         m_sentence = sentence + ""; 
 
         if len(sentence) <= 1: #not long enough, probably not the right command. 
             return (self.QueryResult.FAIL, None); 
 
-        if not self.queryable:
-            print_error("Voice Command","Don't run this when the command is not built for it???"); 
-            return (self.QueryResult.ERROR, None);  
 
         queried_words = list(); 
         keywords = list();  
@@ -147,32 +154,38 @@ class VoiceCommand:
         condition1 = self.trigger_word < other.trigger_word; 
         condition2 = self.priority < other.priority; 
         condition3 = int(self.type) < int(self.type); 
-        return condition1 and condition2 and condition3; 
+        condition4 = self.queryable < other.queryable; 
+        return condition1 and condition2 and condition3 and condition4; 
     def __le__(self, other):
         condition1 = self.trigger_word <= other.trigger_word; 
         condition2 = self.priority <= other.priority; 
         condition3 = int(self.type) <= int(self.type); 
-        return condition1 and condition2 and condition3; 
+        condition4 = self.queryable <= other.queryable; 
+        return condition1 and condition2 and condition3 and condition4; 
     def __eq__(self, other):
         condition1 = self.trigger_word == other.trigger_word; 
         condition2 = self.priority == other.priority; 
         condition3 = int(self.type) == int(self.type); 
-        return condition1 and condition2 and condition3; 
+        condition4 = self.queryable == other.queryable; 
+        return condition1 and condition2 and condition3 and condition4;  
     def __ne__(self, other):
         condition1 = self.trigger_word != other.trigger_word; 
         condition2 = self.priority != other.priority; 
         condition3 = int(self.type) != int(self.type); 
-        return condition1 and condition2 and condition3; 
+        condition4 = self.queryable != other.queryable; 
+        return condition1 and condition2 and condition3 and condition4; 
     def __gt__(self, other):
         condition1 = self.trigger_word > other.trigger_word; 
         condition2 = self.priority > other.priority; 
-        condition3 = int(self.type) > int(self.type); 
-        return condition1 and condition2 and condition3; 
+        condition3 = int(self.type) > int(self.type);  
+        condition4 = self.queryable > other.queryable; 
+        return condition1 and condition2 and condition3 and condition4; 
     def __ge__(self, other):
         condition1 = self.trigger_word >= other.trigger_word; 
         condition2 = self.priority >= other.priority; 
         condition3 = int(self.type) >= int(self.type); 
-        return condition1 and condition2 and condition3;  
+        condition4 = self.queryable >= other.queryable; 
+        return condition1 and condition2 and condition3 and condition4; 
     def __str__(self):
         return f"Prio: {self.priority},\t Name/Type: {self.name},\t Command Type: {self.type},\t Trigger Word: {self.trigger_word},\t Query List: {self.query_list}."
 
@@ -243,7 +256,7 @@ class VoiceCommand:
                     command_type = VoiceCommand.Type.FREE; 
 
                 for trigger_word in trigger_words: 
-                    trigger_word = trigger_word.strip(); 
+                    trigger_word = trigger_word.strip().lower(); 
                     command = VoiceCommand(priority=priority, name=name, trigger_word=trigger_word, function=function, type=command_type,query_list=query_list, script= script_object, predetermined_speech=predetermined_speech);  
                     commands.append(command); 
                         
