@@ -25,8 +25,8 @@ class State(IntEnum):
     CONTINUE = 2
     EXIT = 3 
 
-def get_token(token_string:str): 
-    return util.get_token(token_string); 
+def get_token(token_string:str, source = None): 
+    return util.get_token(token_string, source=source); 
 
 def listen_sentence_input(timeout): 
     try:
@@ -66,30 +66,15 @@ def main():
     while True: #machine_state != State.EXIT:   
         readySocks, _, _ = select.select([sock], [], [], 1); 
         for sock in readySocks: 
-            state = receive_request(sock);   
+            states = receive_request(sock);   
             
-            if state == State.FAIL:
+            if State.FAIL in states:
                 raise Exception("Something went definately wrong, check it.");   
-            machine_state = state;  
+            machine_state = states[-1];  
 
 ##################################################################
 ###################    PROCESS FUNCTIONS      ####################
-##################################################################
-
-def process_packet(packet_message:str):
-    splits = packet_message.split("|"); 
-    title = splits[1].strip().upper(); 
-
-    function_string = ""; 
-
-    if "*FUNC" in title:
-        function_string = title[title.index(":") + 1:]; 
-
-    if "*ARGS" not in title:
-        return (title, list(), function_string);  
-
-    args = splits[2].split(','); 
-    return (title, args, function_string); 
+################################################################## 
 
 def query_arguments(key, args):
     for arg in args:
@@ -99,7 +84,7 @@ def query_arguments(key, args):
             try:
                 return split[1]; 
             except:
-                raise Exception("Arguements pass down must be dictated with '=' sign to assign!\n" + "Got: " + arg);  
+                raise Exception("Arguments pass down must be dictated with '=' sign to assign!\n" + "Got: " + arg);  
     raise NotFoundErr("Your key doesn't exit!?"); 
 
 #################################################################
@@ -118,11 +103,12 @@ def network_request_sentence(sock:socket.socket, args:list):
     spoken_sentence = listen_sentence_input(timeout); 
 
     print('sending audio...');  
-    if(spoken_sentence == None):
-        sock.sendall(bytes(get_token("TIMEOUT"), 'utf-8')); 
-    else:
-        message = get_token("KEY_TOKEN") + "|"; 
-        message += get_token("RETURN_REQUEST_SENTENCE") + "|"; 
+    if(spoken_sentence == None): 
+        message = get_token("RETURN_REQUEST_SENTENCE", util.Source.CLIENT) + "|"; 
+        message += get_token("TIMEOUT");  
+        sock.sendall(bytes(message, 'utf-8')); 
+    else: 
+        message = get_token("RETURN_REQUEST_SENTENCE", util.Source.CLIENT) + "|"; 
         message += spoken_sentence;  
         sock.sendall(bytes(message, 'utf-8')); 
     
@@ -156,31 +142,33 @@ def receive_request(sock: socket.socket):
 
     print("Received", message, "from the server"); 
 
-    if get_token("KEY_TOKEN") not in message: 
-        print("Received something that is not a request. Message:", message); 
+    if util.get_raw_token("KEY_TOKEN") not in message:  
+        print("Received an invalid token. Message:", message); 
         return "None"; 
+    
+    return_list = []; 
 
-    token_occurance = [occurance.start() for occurance in re.finditer(get_token("KEY_TOKEN"), message)]; 
-    length = len(token_occurance)
+    token_occurrence = [occurrence.start() for occurrence in re.finditer(util.get_raw_token("KEY_TOKEN"), message)]; 
+    print("OCCURRENCE", token_occurrence); 
+    length = len(token_occurrence)
     for i in range(length): 
-        occur_index = token_occurance[i];  
+        occur_index = token_occurrence[i];  
         tokened_message = str();  
 
         if i + 1 == length:
             tokened_message = message[occur_index:]; 
         else:
-            next_index = token_occurance[i + 1]; 
+            next_index = token_occurrence[i + 1]; 
             tokened_message = message[occur_index:next_index]; 
 
-        title, args, function_string = process_packet(tokened_message); 
+        header, source, tags, body, args = util.parse_packet_message(tokened_message); 
     
-        if function_string == "":
-            continue;  #if it is a function
+        if "*FUNC" not in tags:
+            continue;  #if it is a function 
+        return_list.append(globals()[body.lower()](sock, args));  
+    return return_list; 
 
-        return globals()[function_string.lower()](sock, args);  
-
-# end function
-# 
+# end function 
 
 if __name__ == '__main__': 
     main(); 

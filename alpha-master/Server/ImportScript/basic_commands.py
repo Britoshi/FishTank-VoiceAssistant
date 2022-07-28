@@ -1,20 +1,18 @@
 from unittest import result
 from Core.command import *; 
 from Modules import weather_module; 
+import math; 
 
-def _speak_command_check_weather(spoken_sentence:str, command: VoiceCommand, args: list): 
+def _speak_command_check_weather(spoken_sentence:str, command: VoiceCommand, args: list, **extra):#spoken_sentence:str, command: VoiceCommand, args: list): 
     return (Result.SUCCESS, weather_module.get_irvine_weather()); 
 
-def _speak_command_return(spoken_sentence:str, command: VoiceCommand, args: list):
+def _speak_command_return(spoken_sentence:str, command: VoiceCommand, args: list, **extra):
     return (Result.EXIT, ""); 
 
-def _query_command_weather(spoken_sentence:str, command: VoiceCommand, args: list):
-    return (Result.SUCCESS, weather_module.get_weather(args[0]));  
+def _query_command_weather(spoken_sentence:str, command: VoiceCommand, args: list, **extra):
+    return (Result.SUCCESS, weather_module.get_weather(args[0]));   
 
-from Core.command import *
-import math
-
-def power_two_numbers(spoken_sentence:str, command: VoiceCommand, args: list):
+def power_two_numbers(spoken_sentence:str, command: VoiceCommand, args: list, **extra):
     first_number = int(args[0]); 
     second_number = int(args[1]); 
 
@@ -22,7 +20,7 @@ def power_two_numbers(spoken_sentence:str, command: VoiceCommand, args: list):
     return_sentence = f"The {first_number} to the power of {second_number} is {result}"; 
     return (Result.SUCCESS, return_sentence);  
 
-def add_two_numbers(spoken_sentence:str, command: VoiceCommand, args: list): 
+def add_two_numbers(spoken_sentence:str, command: VoiceCommand, args: list, **extra): 
     first_number = int(args[0]); 
     second_number = int(args[1]); 
 

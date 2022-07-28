@@ -55,8 +55,8 @@ class VoiceCommand:
         self.queryable =  len(query_list) != 0; 
         self._next_word = ""; 
         self.script = script; 
-        self.predetermined_speech = predetermined_speech; 
-    
+        self.predetermined_speech = predetermined_speech;  
+
     def check_strict_sentence(self, spoken_sentence:str):
         if(self.type != self.Type.STRICT):
             raise Exception("A strict search is being done for a free type!!!"); 
@@ -268,3 +268,13 @@ class VoiceCommand:
         commands.sort(); 
         println("Voice Command", "Command Importation Successful.")
         return commands;  
+
+class VoiceCommands:
+    def __init__(self):
+        self.voice_commands = VoiceCommand.import_commands(); 
+    
+    def reload(self):
+        self.voice_commands = VoiceCommand.import_commands(); 
+
+    def __getitem__(self, index):
+        return self.voice_commands[index]; 

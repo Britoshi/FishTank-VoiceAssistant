@@ -6,12 +6,19 @@ import pandas as pd;
 import os, glob, sys; 
 import inspect; 
 import math;  
+from Core.command import *;
+from Core.command_listener import Response; 
 from Core.server_system import *; 
+import socket; 
+from enum import Enum;
+from enum import EnumMeta;
 
 global token_dictionary; 
 token_dictionary = None; 
 
 PARENT_DIR = str(Path("__init__.py").parent.absolute());   
+
+print(PARENT_DIR); 
 
 COMMAND_FOLDER_PATH = PARENT_DIR + r'/Resources/command list import/';  
 TOKEN_PATH = PARENT_DIR + r"/Resources/TOKEN.txt";  
@@ -19,12 +26,52 @@ CONFIG_PATH = PARENT_DIR + r"/properties.cfg";
 
 sys.path.insert(0, PARENT_DIR);  
 
+print(PARENT_DIR); 
+
 ######################################################################
 ######                      Class / Object                      ######
 ######################################################################
 
-class Configuration(object): 
+class Source(EnumMeta):
+    SERVER="SERVER"; 
+    CLIENT="CLIENT";  
+
+class Detection:
+    def __init__(self):
+        self.spoken_sentence:str = ""; 
+        self.result = None; 
+        self.response:Response = None; 
+        self.response_text:str = None;  
+        self.trigger_command = None; 
+        self.fishtank_seek = False; 
+        self.ready:bool = False; 
+
+        self.stop_threads = False; 
     
+    def wait(self):
+        self.spoken_sentence = ""; 
+        self.response = None; 
+        self.result = None; 
+        self.response_text:str = None; 
+        self.trigger_command = None; 
+        self.fishtank_seek = False; 
+        self.ready = False; 
+
+    def set_ready(self, response:Response):
+        self.response = response; 
+        self.result = response.result; 
+        self.response_text:str = response.response_text;  
+        self.spoken_sentence:str = response.spoken_sentence;  
+        self.trigger_command = response.trigger_command; 
+        self.ready = True; 
+
+    def set_ready_timeout(self):
+        self.ready= True; 
+        self.result = Result.TIMEOUT; 
+
+
+class Configuration(object): 
+
     def __init__(self, default:bool = True):
         if default:   
             self.HOST_IP = "192.168.1.101"; 
@@ -175,17 +222,71 @@ def file_exists(path:str) -> bool:
     """ 
     return exists(path);   
 
+def initialize_server():   
+    config = Configuration.load_config();    
+    # instantiate a socket object
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM); 
+    println("NETWORK",'Socket Instantiated'); 
+    sock.bind((config.HOST_IP, config.PORT)); 
+    sock.listen(); 
+    println("NETWORK",'Socket Now Listening'); 
+    conn, addr = sock.accept(); #wait
+    println("NETWORK",'Socket Accepted, Got Connection Object'); 
+    return (config, sock, conn, addr);  
 
 def update_token(): 
     file_id = '18uWZCUYY6DGAT1wlaq2QjNbCbOQ4EqPt'
-    destination = TOKEN_PATH;  
-    return __download_file_from_google_drive(file_id, destination); 
+    destination = TOKEN_PATH + "";  
+    print(TOKEN_PATH);
+    return __download_file_from_google_drive(file_id, destination);  
 
-def get_token(token_string:str):
+
+def parse_packet_message(message:str):
+    tokens = message.split("|"); 
+    header = tokens[0]; 
+    source = str(); 
+    if get_raw_token("SERVER_TOKEN") in header:
+        source = get_raw_token("SERVER_TOKEN"); 
+    else: source = get_raw_token("CLIENT_TOKEN"); 
+
+    if get_raw_token("KEY_TOKEN") in header:
+        header = get_raw_token("KEY_TOKEN"); 
+
+    body = tokens[1];  
+    tags = ""; 
+    args = None; 
+
+    body_tag_check = body.split(":"); 
+    if len(body_tag_check) > 1: 
+        tags = body_tag_check[0];  
+        body = body_tag_check[1]; 
+    
+    if "*ARGS" in tags:
+        args = tokens[2:];  
+
+    return (header, source, tags, body, args); 
+
+
+def get_raw_token(token_string:str):
+    return get_token_dictionary()[token_string]; 
+
+def get_token(token_string:str, source:Source = None):
+
+    source_text = str();  
     token_dic = get_token_dictionary();  
-    if token_string == "KEY_TOKEN":
-        return token_dic["KEY_TOKEN"]; 
-    return token_dic["KEY_TOKEN"] + "|" + token_dic[token_string]; 
+
+    if source != None: #if not none
+        source_text += str(source) + ">>"; 
+
+        if "TOKEN" in token_string:
+            return token_dic[token_string] + source_text; 
+
+        # else: return token_dic[token_string]; 
+    else: #if none;
+        if "TOKEN" in token_string:
+            return token_dic[token_string];  
+
+    return token_dic["KEY_TOKEN"] + source_text + "|" + token_dic[token_string]; 
 
 def get_token_dictionary(refresh = False) -> dict:
     global token_dictionary;  

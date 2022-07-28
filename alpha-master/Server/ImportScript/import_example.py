@@ -2,7 +2,7 @@ from calendar import month_name
 from datetime import datetime 
 from Core.command import *;
 
-def tell_time(spoken_sentence:str, command: VoiceCommand, args: list): 
+def tell_time(spoken_sentence:str, command: VoiceCommand, args: list, **extra): 
     time = datetime.now(); 
 
     minute = time.minute; 
@@ -22,7 +22,7 @@ def tell_time(spoken_sentence:str, command: VoiceCommand, args: list):
 def play_music(stn, cmd):
     cmd.script.play(); 
 
-def tell_calendar(spoken_sentence:str, command: VoiceCommand, args: list): 
+def tell_calendar(spoken_sentence:str, command: VoiceCommand, args: list, **extra): 
     date = datetime.now().date(); 
      
 
@@ -31,7 +31,7 @@ def tell_calendar(spoken_sentence:str, command: VoiceCommand, args: list):
 
     MONTH_NAME = {
         1: "January",
-        2: "Februrary",
+        2: "February",
         3: "March",
         4: "April",
         5: "May",
@@ -56,7 +56,7 @@ def tell_calendar(spoken_sentence:str, command: VoiceCommand, args: list):
 
     return (1, f"Today is {MONTH_NAME[month]} {day}."); 
 
-def tell_date(spoken_sentence:str, command: VoiceCommand, args: list): 
+def tell_date(spoken_sentence:str, command: VoiceCommand, args: list, **extra): 
     date = datetime.now().date();   
     
     DAY_STRING = {

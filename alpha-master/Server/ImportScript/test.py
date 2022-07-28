@@ -1,7 +1,7 @@
 from command import *; 
 import math
 
-def power_two_numbers(spoken_sentence:str, command: VoiceCommand, args: list):
+def power_two_numbers(spoken_sentence:str, command: VoiceCommand, args: list, **extra):
     first_number = int(args[0]); 
     second_number = int(args[1]); 
 

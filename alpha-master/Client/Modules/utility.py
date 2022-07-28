@@ -1,7 +1,7 @@
 from os.path import exists;  
-from pathlib import Path; 
-from pickle import NONE; 
+from pathlib import Path;  
 import requests; 
+from enum import EnumMeta; 
 
 ######################################################################
 ######                     CONST AND GLOBAL                     ######
@@ -23,6 +23,10 @@ CONFIG_PATH = PARENT_DIR + r"/properties.cfg";
 ######                      Class / Object                      ######
 ######################################################################
 
+class Source(EnumMeta):
+    SERVER="SERVER"; 
+    CLIENT="CLIENT";  
+    
 class Configuration(object): 
     def __init__(self, default:bool = True):
         if default:   
@@ -176,13 +180,53 @@ def file_exists(path:str) -> bool:
 def update_token(): 
     file_id = '18uWZCUYY6DGAT1wlaq2QjNbCbOQ4EqPt'
     destination = TOKEN_PATH;  
-    return _download_file_from_google_drive(file_id, destination); 
+    return _download_file_from_google_drive(file_id, destination);  
 
-def get_token(token_string:str):
+
+def parse_packet_message(message:str):
+    tokens = message.split("|"); 
+    header = tokens[0]; 
+    source = str(); 
+    if get_raw_token("SERVER_TOKEN") in header:
+        source = get_raw_token("SERVER_TOKEN"); 
+    else: source = get_raw_token("CLIENT_TOKEN"); 
+
+    if get_raw_token("KEY_TOKEN") in header:
+        header = get_raw_token("KEY_TOKEN"); 
+
+    body = tokens[1];  
+    tags = ""; 
+    args = None; 
+
+    body_tag_check = body.split(":"); 
+    if len(body_tag_check) > 1: 
+        tags = body_tag_check[0];  
+        body = body_tag_check[1]; 
+    
+    if "*ARGS" in tags:
+        args = tokens[2:];  
+
+    return (header, source, tags, body, args); 
+def get_raw_token(token_string:str):
+    return get_token_dictionary()[token_string]; 
+
+def get_token(token_string:str, source:Source = None):
+
+    source_text = str();  
     token_dic = get_token_dictionary();  
-    if token_string == "KEY_TOKEN":
-        return token_dic["KEY_TOKEN"]; 
-    return token_dic["KEY_TOKEN"] + "|" + token_dic[token_string];  
+
+    if source != None: #if not none
+        source_text += str(source) + ">>"; 
+
+        if "TOKEN" in token_string:
+            return token_dic[token_string] + source_text; 
+
+        # else: return token_dic[token_string]; 
+    else: #if none;
+        if "TOKEN" in token_string:
+            return token_dic[token_string];  
+
+    return token_dic["KEY_TOKEN"] + source_text + "|" + token_dic[token_string]; 
 
 def get_token_dictionary(refresh = False) -> dict:
     global token_dictionary;  
