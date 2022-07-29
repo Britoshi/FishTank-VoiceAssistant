@@ -116,7 +116,7 @@ class CommandListner:
             if(diff >= 3):
                 #this means there's more than 3 extra characters, then try to get more command
                 continued_words = spoken_sentence[length_to_word:].strip(); 
-                response = self.get_response(socket, continued_words); 
+                response = self.get_response(continued_words); 
                 
                 if response.result == Result.SUCCESS:
                     response.result = Result.CONTINUE; 

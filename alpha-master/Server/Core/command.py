@@ -1,4 +1,3 @@
-
 from enum import Enum;
 from enum import IntEnum; 
 import os, glob;
@@ -16,7 +15,7 @@ class Result(IntEnum):
     FAIL = 2        
     CONTINUE = 3    
     EXIT = 4        
-    TIMEOUT = 5     
+    TIMEOUT = 5 
     RELOAD = 6
 
 class VoiceCommand:

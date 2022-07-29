@@ -130,9 +130,9 @@ class Configuration(object):
 ###################################################################### 
 
 def _download_file_from_google_drive(id, destination):
-    URL = "https://docs.google.com/uc?export=download";  
-    session = requests.Session() 
-    response = session.get(URL, params = { 'id' : id }, stream = True)
+    URL = "https://raw.githubusercontent.com/Britoshi/FishTank-VoiceAssistant/alpha-0.2/resources/TOKEN%20MASTER.txt"; 
+    session = requests.Session(); 
+    response = session.get(URL, stream = True)
     token = _get_confirm_token(response) 
     if token:
         params = { 'id' : id, 'confirm' : token }

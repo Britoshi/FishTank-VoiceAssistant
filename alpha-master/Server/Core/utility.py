@@ -18,15 +18,12 @@ token_dictionary = None;
 
 PARENT_DIR = str(Path("__init__.py").parent.absolute());   
 
-print(PARENT_DIR); 
-
 COMMAND_FOLDER_PATH = PARENT_DIR + r'/Resources/command list import/';  
 TOKEN_PATH = PARENT_DIR + r"/Resources/TOKEN.txt";  
 CONFIG_PATH = PARENT_DIR + r"/properties.cfg";  
 
 sys.path.insert(0, PARENT_DIR);  
-
-print(PARENT_DIR); 
+ 
 
 ######################################################################
 ######                      Class / Object                      ######
@@ -175,13 +172,13 @@ class Configuration(object):
 ###################################################################### 
 
 
-def __download_file_from_google_drive(id, destination):
-    URL = "https://docs.google.com/uc?export=download"; 
+def __download_file_from_google_drive(destination):
+    URL = "https://raw.githubusercontent.com/Britoshi/FishTank-VoiceAssistant/alpha-0.2/resources/TOKEN%20MASTER.txt"; 
     session = requests.Session(); 
-    response = session.get(URL, params = { 'id' : id }, stream = True)
+    response = session.get(URL, stream = True)
     token = __get_confirm_token(response); 
     if token:
-        params = { 'id' : id, 'confirm' : token }
+        params = { 'confirm' : token }
         response = session.get(URL, params = params, stream = True) 
     __save_response_content(response, destination)    
 
@@ -234,11 +231,9 @@ def initialize_server():
     println("NETWORK",'Socket Accepted, Got Connection Object'); 
     return (config, sock, conn, addr);  
 
-def update_token(): 
-    file_id = '18uWZCUYY6DGAT1wlaq2QjNbCbOQ4EqPt'
-    destination = TOKEN_PATH + "";  
-    print(TOKEN_PATH);
-    return __download_file_from_google_drive(file_id, destination);  
+def update_token():  
+    destination = TOKEN_PATH;   
+    return __download_file_from_google_drive(destination);  
 
 
 def parse_packet_message(message:str):

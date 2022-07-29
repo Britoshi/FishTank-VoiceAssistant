@@ -8,6 +8,8 @@ from enum import IntEnum;
 from Modules import utility as util; 
 from Modules import text_to_speech;
 from AudioPlayer import audio_player;
+from os import system;   
+import sys;
 
 CONFIG = util.Configuration.load_config(); 
 
@@ -170,5 +172,16 @@ def receive_request(sock: socket.socket):
 
 # end function 
 
-if __name__ == '__main__': 
-    main(); 
+
+try: 
+    if __name__ == '__main__': 
+        main(); 
+        
+except Exception as e:
+    print("SYSTEM", "The Server has crashed unexpectedly."); 
+    print("ERROR:", e); 
+    print("\nRestarting...");  
+    #network_sendall(util.get_token("STOP_SIGNAL", util.Source.SERVER));  
+    
+    system(f"py {util.PARENT_DIR}/start.py") 
+    sys.exit("STOPPING!"); 

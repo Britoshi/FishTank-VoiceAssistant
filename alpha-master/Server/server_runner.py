@@ -1,6 +1,3 @@
-import multiprocessing
-from pickle import FALSE; 
- 
 from Core import utility as util;  
 util.update_token();  
 
@@ -11,6 +8,7 @@ from enum import Enum;
 from Core.server_system import *; 
 from Core.command import *; 
 from Core.custom_thread import StoppableThread as thread;
+from os import system;  
 
 import socket;  
 import select;  
@@ -39,44 +37,25 @@ LISTENER_STATUS = util.Detection();
 #               Thread Work                 #
 #############################################
 
-def thread_network_handler(): thread_socket_listener(); 
-def thread_speech_handler(): thread_speech_processor();  
+def thread_network_handler(): thread_socket_listener();  
 
-THREAD_NETWORK = thread(target=thread_network_handler, args=[]); 
-THREAD_SPEECH = thread(target=thread_speech_handler, args=[]);    
+THREAD_NETWORK = thread(target=thread_network_handler, args=[]);    
 
 ################################################
 
 def initialize_threads():
-    THREAD_NETWORK.start(); 
-    THREAD_SPEECH.start(); 
+    THREAD_NETWORK.start();  
 
 def kill_threads():
-    LISTENER_STATUS.stop_threads = True; 
-    THREAD_SPEECH.join(); 
+    LISTENER_STATUS.stop_threads = True;  
     THREAD_NETWORK.join(); 
 
 #################################################
 #####               SPEECH                  #####
 #################################################
 
-def thread_speech_processor():
-    global input_speech; 
-    while(True): 
-        #THIS IS THE THREAD KILLER, IMPORTANT
-        if LISTENER_STATUS.stop_threads == True: break; 
-
-        if(input_speech == ""): continue;  
-        #if(stop_process == State.EXIT): break; 
-
-        print("Assistant:", input_speech);                  
-        text_to_speech.create_sentence_wave(input_speech);  
-        audio_player.play_generated_sentence();             
-        input_speech = "";                                  
-
-
 def output_speech(text: str): 
-    print("Assistant:", input_speech);       
+    print("Assistant:", text); 
     CONN.sendall(bytes(util.get_token("CLIENT_SPEAK", util.Source.SERVER) + "|" + text, "utf-8")); 
 
 #################################################
@@ -174,8 +153,7 @@ def fishtank_listener():
     response = LISTENER.on_receive_spoken_sentence_loop(LISTENER_STATUS.spoken_sentence, ["fish tank"], exit_commands=[]); 
     if response.result == Result.SUCCESS:  
         print("     User:", LISTENER_STATUS.spoken_sentence); 
-        output_speech('how may I help');  
-
+        output_speech('how may I help');   
         request = LISTENER_REQUEST_SENTENCE_WAIT(timeout = 5);  
         process_result();  
     elif response.result == Result.CONTINUE or response.result == Result.RELOAD:
@@ -191,7 +169,7 @@ def fishtank_listener():
 
 def listener_function():  
     #this might be hard to read, but if the loop is returned to stop, then stop.
-    raise Exception("TEST"); 
+    #raise Exception("TEST"); 
     if(fishtank_listener() == State.EXIT): return State.EXIT; 
 
 def main(): 
@@ -204,12 +182,10 @@ def main():
     CONN.sendall(bytes(util.get_token("STOP_SIGNAL", util.Source.SERVER), "utf-8")); 
     SOCK.close();   
     
-    THREAD_NETWORK.join();  
-    THREAD_SPEECH.join();  
+    THREAD_NETWORK.join();   
 
 # end function 
 
-from os import system;  
 
 try:
     if __name__ == '__main__': 
@@ -218,7 +194,7 @@ except Exception as e:
     print_error("SYSTEM", "The Server has crashed unexpectedly."); 
     print("ERROR:", e); 
     print("\nRestarting...");  
-    network_sendall(util.get_token("")) 
+    #network_sendall(util.get_token("STOP_SIGNAL", util.Source.SERVER));  
     kill_threads(); 
     
     system(f"py {util.PARENT_DIR}/start.py") 
