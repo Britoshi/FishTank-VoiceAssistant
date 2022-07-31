@@ -31,7 +31,7 @@ class VoiceCommand:
             return "Free";   
         
     @staticmethod
-    def __speak_set_script(_, cmd, __):
+    def __speak_set_script(_, cmd, __, **___):
         return (1, cmd.predetermined_speech); 
 
     @staticmethod
