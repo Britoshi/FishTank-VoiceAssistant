@@ -7,7 +7,7 @@ import pickle;
 import threading;  
 from enum import IntEnum;
 from Modules import utility as util; 
-util.update_token(); 
+#util.update_token(); 
 
 from Modules import text_to_speech;
 from AudioPlayer import audio_player;
@@ -20,10 +20,12 @@ HOST = CONFIG.HOST_IP;
 PORT = CONFIG.PORT;  
  
 RECOGNIZER = speech_recognition.Recognizer(); 
+RECOGNIZER_BACKGROUND = speech_recognition.Recognizer(); 
 MICROPHONE = speech_recognition.Microphone();  
+MICROPHONE_BACKGROUND = speech_recognition.Microphone();  
 
-RECOGNIZER.dynamic_energy_threshold = False; 
-RECOGNIZER.energy_threshold = 400;  
+#RECOGNIZER.dynamic_energy_threshold = False; 
+#RECOGNIZER.energy_threshold = 400;  
 
 CLIENT_VARIABLE = util.ClientGlobalVariables();  
 
@@ -45,13 +47,13 @@ LOCK = threading.Lock();
 
 def initialize_threads():
     THREAD_NETWORK.start();  
-    THREAD_NOISE.start(); 
+    #THREAD_NOISE.start(); 
 
 
 def kill_threads():
     CLIENT_VARIABLE.stop_threads = True;  
     THREAD_NETWORK.join(); 
-    THREAD_NOISE.join(); 
+    #THREAD_NOISE.join(); 
 
 #################################################################
 #####                      THREAD WORKS                     #####
@@ -92,7 +94,7 @@ def thread_noise_adjuster():
 
 
 
-def background_task_callback(recognizer, audio):  
+def background_task_callback(recognizer:speech_recognition.Recognizer, audio):  
     if not CLIENT_VARIABLE.loop_available: return;  
 
     spoken_sentence = str();  
@@ -124,7 +126,7 @@ def background_task_callback(recognizer, audio):
 
 
 def initialize_background_process():
-    listener = RECOGNIZER.listen_in_background(MICROPHONE, background_task_callback); 
+    listener = RECOGNIZER_BACKGROUND.listen_in_background(MICROPHONE_BACKGROUND, background_task_callback);  
 
 
 class State(IntEnum): 
@@ -141,7 +143,7 @@ def listen_sentence_input(timeout):
         with MICROPHONE as source:
             RECOGNIZER.adjust_for_ambient_noise(MICROPHONE);    
             recorded_audio = RECOGNIZER.listen(source, timeout = timeout);  
-            spoken_sentence = RECOGNIZER.recognize_google(recorded_audio); 
+            spoken_sentence = RECOGNIZER.recognize_google(recorded_audio);  
             return spoken_sentence; 
 
     except (speech_recognition.UnknownValueError, speech_recognition.WaitTimeoutError):
@@ -194,7 +196,7 @@ def network_request_sentence(sock:socket.socket, args:list):
     print('sending audio...');  
     if(spoken_sentence == None): 
         message = get_token("RETURN_REQUEST_SENTENCE", util.Source.CLIENT) + "|"; 
-        message += get_token("TIMEOUT");  
+        message += util.get_raw_token("TIMEOUT");  
         sock.sendall(bytes(message, 'utf-8')); 
     else: 
         message = get_token("RETURN_REQUEST_SENTENCE", util.Source.CLIENT) + "|"; 
@@ -206,7 +208,7 @@ def network_request_sentence(sock:socket.socket, args:list):
 def network_speak(sock:socket.socket, args:list):    
     
     #TEMP
-    CLIENT_VARIABLE.loop_available = True;
+    CLIENT_VARIABLE.loop_available = True; 
 
     text_to_speech.create_sentence_wave(args[0]);  
     audio_player.play_generated_sentence();    

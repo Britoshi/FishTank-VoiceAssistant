@@ -1,7 +1,7 @@
 from calendar import isleap
 from httplib2 import Response
 from Core import utility as util;  
-util.update_token();  
+#util.update_token();  
 
 #from Modules import text_to_speech; 
 #from AudioPlayer import audio_player; 
@@ -97,7 +97,7 @@ def process_network_packet(sock:socket.socket):
         return; 
 
     if "*FUNC" in tags:
-        return globals[body.lower()](args); 
+        return globals()[body.lower()](args); 
  
     #if body in util.get_raw_token("RETURN_REQUEST_SENTENCE_LOOP"):
     #    spoken_sentence = args[0]; 
@@ -141,8 +141,14 @@ def process_result(response:listener.Response):
 def network_process_spoken_sentence(args): 
     spoken_sentence:str = args[0]; 
 
+
+    if util.get_raw_token("TIMEOUT") in args: 
+        output_speech("Sorry, I didn't pick up what you said."); 
+        return; 
+
     #this means that this is not a loop.
     is_loop = len(args) > 1; 
+    print(args); 
 
     if not is_loop:
         response = LISTENER.on_receive_spoken_sentence(spoken_sentence); 
@@ -156,7 +162,7 @@ def network_process_spoken_sentence(args):
         print("     User:", spoken_sentence); 
         output_speech('how may I help');   
         #response = LISTENER_REQUEST_SENTENCE_WAIT(timeout = 5); 
-        LISTENER.request_response_from_clients(timeout=5);  
+        LISTENER.request_response_from_clients(timeout=10);  
 
     elif response.result == Result.CONTINUE or response.result == Result.RELOAD:
         process_result(response);  

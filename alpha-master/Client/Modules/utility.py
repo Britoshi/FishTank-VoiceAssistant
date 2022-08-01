@@ -235,8 +235,9 @@ def get_raw_token(token_string:str):
 
 def get_token(token_string:str, source:Source = None):
 
+
     source_text = str();  
-    token_dic = get_token_dictionary();  
+    token_dic = get_token_dictionary();   
 
     if source != None: #if not none
         source_text += str(source) + ">>"; 
