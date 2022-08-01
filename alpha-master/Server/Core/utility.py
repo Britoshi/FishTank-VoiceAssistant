@@ -119,19 +119,19 @@ class Configuration(object):
 
             config_name = tokens[0].strip(); 
             config_content = tokens[1].strip();  
-            match config_name:
-                case "HOST_IP":
-                    configuration.HOST_IP = config_content; 
-                case "PORT":
-                    try:
-                        configuration.PORT = int(config_content); 
-                    except:
-                        print_error("Configuration", "PORT MUST BE A NUMBER GREATER THAN 1024 AND MUST NOT CONTAIN ANY ALPHABETS! LOADING DEFAULT CONFIGURATION"); 
-                        return error_reroute(); 
-                case _:
-                    print_warning("Configuration", f"Given Config name of '{config_name}' does not match. Ignoring and continuing"); 
-                    cls.__print_github(); 
-                    continue; 
+            
+            if config_name == "HOST_IP":
+                configuration.HOST_IP = config_content; 
+            elif config_name == "PORT":
+                try:
+                    configuration.PORT = int(config_content); 
+                except:
+                    print_error("Configuration", "PORT MUST BE A NUMBER GREATER THAN 1024 AND MUST NOT CONTAIN ANY ALPHABETS! LOADING DEFAULT CONFIGURATION"); 
+                    return error_reroute(); 
+            else:
+                print_warning("Configuration", f"Given Config name of '{config_name}' does not match. Ignoring and continuing"); 
+                cls.__print_github(); 
+                continue; 
 
             if config_name in duplicate_detector:
                 print_warning("Configuration", f"The given config name '{config_name}' is a duplicate, please make sure there's only one."); 

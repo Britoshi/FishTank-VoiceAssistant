@@ -34,13 +34,15 @@ async def getweather(location):
     await client.close();               
 
 def get_irvine_weather():               
-    loop = asyncio.get_event_loop();    
+    loop = asyncio.new_event_loop();    
+    asyncio.set_event_loop(loop); 
     loop.run_until_complete(get_current_weather()); 
     global current_weather;             
     return current_weather;             
 
 def get_weather(location):  
-    loop = asyncio.get_event_loop(); 
+    loop = asyncio.new_event_loop();    
+    asyncio.set_event_loop(loop); 
     loop.run_until_complete(get_current_weather(location)); 
     global current_weather; 
     return current_weather; 

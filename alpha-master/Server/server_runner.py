@@ -1,8 +1,10 @@
+from calendar import isleap
+from httplib2 import Response
 from Core import utility as util;  
 util.update_token();  
 
-from Modules import text_to_speech; 
-from AudioPlayer import audio_player; 
+#from Modules import text_to_speech; 
+#from AudioPlayer import audio_player; 
 from Core import command_listener as listener; 
 from enum import Enum; 
 from Core.server_system import *; 
@@ -13,18 +15,14 @@ from os import system;
 import socket;  
 import select;  
 import time;     
-import sys;
-
-import speech_recognition as speech_recognition_module;   
+import sys; 
 
 
 class State(Enum):
     CONTINUE = 1
     EXIT = 2 
 
-input_speech = str();  
-
-RECOGNIZER = speech_recognition_module.Recognizer();   
+input_speech = str();   
 
 VOICE_COMMANDS = VoiceCommands(); #.import_commands(); 
  
@@ -77,6 +75,9 @@ def thread_socket_listener():
         for sock in readySocks:   
             process_network_packet(sock); 
         
+#####################################################################
+#####                   RECEIVE NETWORK PACKET                  #####
+#####################################################################
 
 def process_network_packet(sock:socket.socket):
     println("NETWORK", "receiving packets...", end = " ");  
@@ -96,10 +97,13 @@ def process_network_packet(sock:socket.socket):
         return; 
 
     if "*FUNC" in tags:
-        print("Run function, not implemented");  
         return globals[body.lower()](args); 
  
-    if body in util.get_raw_token("RETURN_REQUEST_SENTENCE"):
+    #if body in util.get_raw_token("RETURN_REQUEST_SENTENCE_LOOP"):
+    #    spoken_sentence = args[0]; 
+    #    process_spoken_sentence_loop(spoken_sentence);  
+
+    elif body in util.get_raw_token("RETURN_REQUEST_SENTENCE"):
         spoken_sentence = args[0]; 
         println("Network", "RETURN_REQUEST_SENTENCE found with the sentence of", spoken_sentence); 
 
@@ -112,71 +116,65 @@ def process_network_packet(sock:socket.socket):
     else:
         pass; 
 
-#######################################################
-#####               Main Methods                  #####
-#######################################################
+###########################################################
+#####                PRIMARY Methods                  #####
+###########################################################
 
-def process_result():  
-    if LISTENER_STATUS.result == Result.SUCCESS or LISTENER_STATUS.result == Result.CONTINUE:  
-        print("     User:", LISTENER_STATUS.spoken_sentence); 
-        print("  Command:", LISTENER_STATUS.trigger_command); 
-        output_speech(LISTENER_STATUS.response_text); 
-    elif LISTENER_STATUS.result == Result.EXIT: 
+def process_result(response:listener.Response):  
+    if response.result == Result.SUCCESS or response.result == Result.CONTINUE:  
+        print("     User:", response.spoken_sentence); 
+        print("  Command:", response.trigger_command); 
+        output_speech(response.response_text); 
+    elif response.result == Result.EXIT: 
         output_speech("Okay"); 
-    elif LISTENER_STATUS.result == Result.RELOAD: 
+    elif response.result == Result.RELOAD: 
         VOICE_COMMANDS.reload(); 
-        output_speech(LISTENER_STATUS.response_text); 
+        output_speech(response.response_text); 
     else: 
         output_speech("Sorry, I didn't pick up what you said."); 
-    return State.CONTINUE; 
+    return State.CONTINUE;  
 
-def LISTENER_REQUEST_SENTENCE_WAIT(fishtank_seek = False, timeout = LISTENER.loop_timeout): 
-    LISTENER.request_response_from_clients(timeout=timeout); 
-    LISTENER_STATUS.wait();  
-    #this has to come after wait; 
-    if fishtank_seek: LISTENER_STATUS.fishtank_seek = True; 
-    #add a timeout to this later 
-    start_time = time.time(); 
-    while LISTENER_STATUS.ready == False: 
-        curr_time = time.time(); 
-        difference = curr_time - start_time; 
-        if difference > 60:
-            raise Exception("Something went terribly wrong. There's a high probability that the problem is caused by the client.")
+####################################################################
+#                       NETWORK FUNCTIONS                          #
+####################################################################
 
-    return Result.SUCCESS; 
+def network_process_spoken_sentence(args): 
+    spoken_sentence:str = args[0]; 
 
-def fishtank_listener():  
-    request = LISTENER_REQUEST_SENTENCE_WAIT(fishtank_seek=True);   
-    #this will be added into the method itself later
-    if request != Result.SUCCESS: raise Exception("Something went wrong inside the waiting sequence for sentence. Contact Brian."); 
+    #this means that this is not a loop.
+    is_loop = len(args) > 1; 
 
-    response = LISTENER.on_receive_spoken_sentence_loop(LISTENER_STATUS.spoken_sentence, ["fish tank"], exit_commands=[]); 
+    if not is_loop:
+        response = LISTENER.on_receive_spoken_sentence(spoken_sentence); 
+        process_result(response); 
+        return State.CONTINUE;  
+
+    trigger_word = args[1]; 
+    response:listener.Response = LISTENER.on_receive_spoken_sentence_loop(spoken_sentence, [trigger_word], exit_commands=[]); 
+
     if response.result == Result.SUCCESS:  
-        print("     User:", LISTENER_STATUS.spoken_sentence); 
+        print("     User:", spoken_sentence); 
         output_speech('how may I help');   
-        request = LISTENER_REQUEST_SENTENCE_WAIT(timeout = 5);  
-        process_result();  
+        #response = LISTENER_REQUEST_SENTENCE_WAIT(timeout = 5); 
+        LISTENER.request_response_from_clients(timeout=5);  
+
     elif response.result == Result.CONTINUE or response.result == Result.RELOAD:
-        process_result();  
+        process_result(response);  
     elif response.result == Result.EXIT:
         output_speech("See you next time."); 
         return State.EXIT; 
     else:
+        print_error("Processing Spoken Sentence", "How is this called????"); 
         pass; 
     
     #If not exit then it has to be continue; 
-    return State.CONTINUE; 
-
-def listener_function():  
-    #this might be hard to read, but if the loop is returned to stop, then stop.
-    #raise Exception("TEST"); 
-    if(fishtank_listener() == State.EXIT): return State.EXIT; 
-
+    return State.CONTINUE;   
+    
 def main(): 
     initialize_threads();  
 
     while(True): 
-        stop_process = listener_function(); 
+        stop_process = None; #listener_function(); 
         if(stop_process == State.EXIT): break;  
 
     CONN.sendall(bytes(util.get_token("STOP_SIGNAL", util.Source.SERVER), "utf-8")); 

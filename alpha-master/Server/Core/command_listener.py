@@ -1,4 +1,3 @@
-import speech_recognition;    
 from Core import utility as util;  
 from Core.command import *; 
 import socket;   

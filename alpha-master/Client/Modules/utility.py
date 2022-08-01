@@ -1,7 +1,9 @@
 from os.path import exists;  
-from pathlib import Path;  
+from pathlib import Path
+from turtle import update;  
 import requests; 
 from enum import EnumMeta; 
+import socket; 
 
 ######################################################################
 ######                     CONST AND GLOBAL                     ######
@@ -22,6 +24,13 @@ CONFIG_PATH = PARENT_DIR + r"/properties.cfg";
 ######################################################################
 ######                      Class / Object                      ######
 ######################################################################
+
+
+class ClientGlobalVariables:
+    def __init__(self): 
+        self.stop_threads = False;  
+        self.loop_available = True; 
+
 
 class Source(EnumMeta):
     SERVER="SERVER"; 
@@ -159,6 +168,20 @@ def _save_response_content(response, destination):
 ######################################################################
 ######                      Public Methods                      ######
 ###################################################################### 
+  
+def initialize_network(host, port): 
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM); 
+    # connect the socket
+    connectionSuccessful = False
+    while not connectionSuccessful:
+        try:
+            print(f"Network: Trying to Connect: HOST={host} PORT={port}"); 
+            sock.connect((host, port))    # Note: if execution gets here before the server starts up, this line will cause an error, hence the try-except
+            print('socket connected'); 
+            connectionSuccessful = True
+        except:
+            pass;  
+    return sock; 
 
 def file_exists(path:str) -> bool:
     """ 
@@ -254,4 +277,4 @@ def get_token_dictionary(refresh = False) -> dict:
         token_dictionary = dictionary; 
         return token_dictionary; 
     else:
-        return token_dictionary;   
+        return token_dictionary;    

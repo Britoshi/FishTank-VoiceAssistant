@@ -3,9 +3,12 @@ import speech_recognition;
 import socket;
 import select;
 import time;
-import pickle; 
+import pickle;
+import threading;  
 from enum import IntEnum;
 from Modules import utility as util; 
+util.update_token(); 
+
 from Modules import text_to_speech;
 from AudioPlayer import audio_player;
 from os import system;   
@@ -14,12 +17,115 @@ import sys;
 CONFIG = util.Configuration.load_config(); 
 
 HOST = CONFIG.HOST_IP; 
-PORT = CONFIG.PORT; 
-
-ACK_TEXT = 'text_received'
+PORT = CONFIG.PORT;  
  
 RECOGNIZER = speech_recognition.Recognizer(); 
 MICROPHONE = speech_recognition.Microphone();  
+
+RECOGNIZER.dynamic_energy_threshold = False; 
+RECOGNIZER.energy_threshold = 400;  
+
+CLIENT_VARIABLE = util.ClientGlobalVariables();  
+
+SOCK = util.initialize_network(HOST, PORT); 
+
+#################################################################
+#####                      CLIENT THREAD                    #####
+#################################################################
+
+def thread_network_handler(): thread_socket_listener(); 
+def thread_noise_handler(): thread_noise_adjuster ();  
+
+THREAD_NETWORK = threading.Thread(target=thread_network_handler, args=[]);    
+THREAD_NOISE = threading.Thread(target=thread_noise_handler, args=[]); 
+
+LOCK = threading.Lock(); 
+
+#################################################################
+
+def initialize_threads():
+    THREAD_NETWORK.start();  
+    THREAD_NOISE.start(); 
+
+
+def kill_threads():
+    CLIENT_VARIABLE.stop_threads = True;  
+    THREAD_NETWORK.join(); 
+    THREAD_NOISE.join(); 
+
+#################################################################
+#####                      THREAD WORKS                     #####
+#################################################################
+
+def thread_socket_listener():
+    machine_state = State.CONTINUE;  
+    while True:
+        if CLIENT_VARIABLE.stop_threads: break; 
+
+        readySocks, _, _ = select.select([SOCK], [], [], 1); 
+        for sock in readySocks: 
+            states = receive_request(sock);   
+            
+            if State.FAIL in states:
+                raise Exception("Something went definitely wrong, check it.");   
+
+            machine_state = states[-1];    
+
+def thread_noise_adjuster():
+    refresh_thresh_hold = 15; 
+    seconds_interval = 1; 
+
+    seconds_passed = 0; 
+    while CLIENT_VARIABLE.stop_threads == False: 
+        if seconds_passed >= refresh_thresh_hold: 
+            RECOGNIZER.adjust_for_ambient_noise(MICROPHONE, duration=5); 
+        
+        time.sleep(seconds_interval); 
+        seconds_passed += seconds_interval; 
+
+ 
+
+
+#################################################################
+#####                       OTHER FUNC                      #####
+#################################################################
+
+
+
+def background_task_callback(recognizer, audio):  
+    if not CLIENT_VARIABLE.loop_available: return;  
+
+    spoken_sentence = str();  
+    try:
+        spoken_sentence = recognizer.recognize_google(audio);  
+        print("PICKED UP:", spoken_sentence); 
+    except speech_recognition.UnknownValueError:
+        return; #print("Google Speech Recognition could not understand audio")
+    except speech_recognition.RequestError as e:
+        return; #print("Could not request results from Google Speech Recognition service; {0}".format(e))
+
+    #Check if fishtank is in the sentence
+    trigger_word = "fish tank"; 
+    if trigger_word in spoken_sentence.lower():
+        #First Check if the server recognizes any of the words. 
+        CLIENT_VARIABLE.loop_available = False;  
+
+        message = get_token("RETURN_REQUEST_SENTENCE_LOOP", util.Source.CLIENT) + "|"; 
+        message += spoken_sentence + "|" + trigger_word;  
+
+        SOCK.sendall(bytes(message, 'utf-8')); 
+        
+        #If it returns false
+        #spoken_sentence = listen_sentence_input(timeout); 
+
+
+
+    
+
+
+def initialize_background_process():
+    listener = RECOGNIZER.listen_in_background(MICROPHONE, background_task_callback); 
+
 
 class State(IntEnum): 
     SUCCESS = 0     
@@ -33,46 +139,27 @@ def get_token(token_string:str, source = None):
 def listen_sentence_input(timeout): 
     try:
         with MICROPHONE as source:
+            RECOGNIZER.adjust_for_ambient_noise(MICROPHONE);    
             recorded_audio = RECOGNIZER.listen(source, timeout = timeout);  
             spoken_sentence = RECOGNIZER.recognize_google(recorded_audio); 
             return spoken_sentence; 
 
     except (speech_recognition.UnknownValueError, speech_recognition.WaitTimeoutError):
-        return None; 
- 
-def send_data(data):   
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((HOST, PORT)); 
-        s.sendall(bytes(data)); 
-        return_data = s.recv(1024); 
- 
-    return return_data; 
+        return None;  
 
-def main():  
-    util.update_token(); 
+##################################################################
+###################      MAIN FUNCTION        ####################
+################################################################## 
+
+def main():    
+    initialize_threads(); 
+    initialize_background_process(); 
+
+    while CLIENT_VARIABLE.stop_threads == False:
+        pass; 
+
+
     
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM); 
-    print('socket instantiated'); 
-
-    # connect the socket
-    connectionSuccessful = False
-    while not connectionSuccessful:
-        try:
-            sock.connect((HOST, PORT))    # Note: if execution gets here before the server starts up, this line will cause an error, hence the try-except
-            print('socket connected'); 
-            connectionSuccessful = True
-        except:
-            pass; 
-
-    machine_state = State.CONTINUE;  
-    while True: #machine_state != State.EXIT:   
-        readySocks, _, _ = select.select([sock], [], [], 1); 
-        for sock in readySocks: 
-            states = receive_request(sock);   
-            
-            if State.FAIL in states:
-                raise Exception("Something went definately wrong, check it.");   
-            machine_state = states[-1];  
 
 ##################################################################
 ###################    PROCESS FUNCTIONS      ####################
@@ -116,7 +203,11 @@ def network_request_sentence(sock:socket.socket, args:list):
     
     return State.SUCCESS; 
 
-def network_speak(sock:socket.socket, args:list):            
+def network_speak(sock:socket.socket, args:list):    
+    
+    #TEMP
+    CLIENT_VARIABLE.loop_available = True;
+
     text_to_speech.create_sentence_wave(args[0]);  
     audio_player.play_generated_sentence();    
     return State.EXIT; 
@@ -131,7 +222,7 @@ def network_exit(sock:socket.socket, args:list):
 
 import re;
 
-def receive_request(sock: socket.socket):
+def receive_request(sock):
     # get the text via the scoket
     encodedMessage = sock.recv(1024); 
 
@@ -178,10 +269,10 @@ try:
         main(); 
         
 except Exception as e:
-    print("SYSTEM", "The Server has crashed unexpectedly."); 
+    print("SYSTEM", "The Client has crashed unexpectedly."); 
     print("ERROR:", e); 
     print("\nRestarting...");  
     #network_sendall(util.get_token("STOP_SIGNAL", util.Source.SERVER));  
-    
+    kill_threads(); 
     system(f"py {util.PARENT_DIR}/start.py") 
     sys.exit("STOPPING!"); 
