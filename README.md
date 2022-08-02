@@ -57,31 +57,41 @@ The client will have a constant loop in its system that is on a stand by for any
 ## Tokens
 Tokens are strings/bytes that dictates what the server/client will do with the packet. In each of the **utility** script in both the client and server, they'll have a method named ```get_token``` method inside. 
 
-The ```get_token(token_string:str)``` method return a matching token to the ```token_string``` variable from reading the file [TOKEN.txt in Client](./alpha-master/Client/Resources/TOKEN.txt) or [TOKEN.txt in Client](./alpha-master/Server/Resources/TOKEN.txt).  
+The ```get_token(token_string:str, source, destination)``` method return a matching token to the ```token_string``` variable from reading the file [TOKEN.txt in Client](./alpha-master/Client/Resources/TOKEN.txt) or [TOKEN.txt in Client](./alpha-master/Server/Resources/TOKEN.txt).  
 
 Inside of the file should look something like this:
 ```
+#Standalone Token
 KEY_TOKEN, >>PACKET<<
 TIMEOUT, TIMEOUT
-REQUEST_SENTENCE, *FUNC*ARGS:NETWORK_REQUEST_SENTENCE
-RETURN_REQUEST_SENTENCE, *ARGS:RETURN_REQUEST_SENTENCE
+#Argument tokens
+RETURN_REQUEST_SENTENCE, *ARGS:RETURN_REQUEST_SENTENCE  
+#Token that invokes a function
 STOP_SIGNAL, *FUNC:NETWORK_EXIT
-CLIENT_SPEAK, *FUNC*ARGS:NETWORK_SPEAK
+#Argument tokens that invokes a function.
+REQUEST_SENTENCE, *FUNC*ARGS:NETWORK_REQUEST_SENTENCE
 ```
 For those who are used to tokenization, yes this is very confusing since tokenization usually revolves around commas, but you'll have to bear with me since I don't even know why I named them tokens.
 
 **Each line should have a single comma no more or no less.**  
 The left side should be the ```token_string``` mentioned above. It is the string that you'll be using inside code and not something the server or the client will know. I don't think I have to say this, but make sure there are no duplicates.
 
+After the ```token_string``` variables are the ```source``` and ```destination```, which uses the **```Source```** enum from **utility.py**(known as util in scripts).  
+A get_token method will look something like this if you're sending it from the server to a client: ```util.get_token("REQUEST", util.Source.SERVER, util.Source.CLIENT)```.
+
 The right side is what the server/client will read and comprehend. To explain further, I'll now explain how the server and client communicates.
 
-A typical spoken sentence request will look like this:  
+A typical packet communicated between the two programs will look like this:  
 ```
->>PACKET<<|*FUNC*ARGS:NETWORK_REQUEST_SENTENCE|TIMEOUT=10
+>>PACKET<<|SOURCE>>DESTINATION|*FUNC*ARGS:NAME_OF_FUNCTION|ANY ARGUMENTS
+>>PACKET<<|SERVER>>CLIENT|*FUNC:SHUTDOWN
 ```
 ### Header
 With each packet received, the server/client will split them using the pipes that look like "**```|```**" found on your keyboard next to "]".  
 As you can see, ```>>PACKET<<``` matches the ```KEY_TOKEN```. That is the header shared between the two program to know that it is receiving packet from the each other and not any other foreign entity.
+
+### Route
+Route system is very simple, the 'from' or the 'source' will be on the left side of the '>>' separator which points towards the 'to' or the 'destination'. Once either program receives the route information, they'll either choose to ignore or use the packet.
 
 ### Body
 Now that we know that the packet is valid, we'll proceed to read the second pipe: **the body**.  
@@ -94,18 +104,17 @@ It's pretty clear that it is the ```REQUEST_SENTENCE``` from the TOKEN.txt, matc
 **\*ARGS** indicates that the there will be a third pipe separating a new section dedicated to reading the arguments.  
 As given in the packet example above, the argument is ```TIMEOUT=10```. Inside the client there's a function that parses the arguments automatically for use which then the contents will be passed into the functions, in this case ```network_request_sentence``` as the parameter of the function. 
 
-You can add more arguments by adding commas. For example to add a second argument:
-```>>PACKET<<|*FUNC*ARGS:EXAMPLE_FUNCTION|```**```EXAMPLE_ARGUMENT_ONE=1,EXAMPLE_ARGUMENT_TWO=2```**
+You can add more arguments by extending them with more pipes. For example to add a second argument:
+```>>PACKET<<|SOURCE>>DEST|*FUNC*ARGS:EXAMPLE_FUNCTION|```**```EXAMPLE_ARGUMENT_ONE=1|EXAMPLE_ARGUMENT_TWO=2```**
 
 In each *FUNC functions, they will send a packet back to the open socket, back to the server with the correct header of course, but with ```RETURN_REQUEST_SENTENCE``` body and a arguemnt which will be the content of the spoken sentence.
 
 That wraps up on how the communication is taken between the two machines. Very straight forward I'd way. The machines check on each other on which caller to use using the ```get_token``` function.
 
 #### How to add more?
-The server and the client automatically downloads the newest information they can find of the TOKEN.txt and updates them. How to access said file... uh, you gotta come to me because I honestly didn't think anyone would dig this deep. Even if you add more manually, it'll just revert back so good luck.
+~~The server and the client automatically downloads the newest information they can find of the TOKEN.txt and updates them. How to access said file... uh, you gotta come to me because I honestly didn't think anyone would dig this deep. Even if you add more manually, it'll just revert back so good luck. But anything else other than that feel free to download and edit the script and add your own functionality to it, but this is not as modular as the voice commands.~~
 
-But anything else other than that feel free to download and edit the script and add your own functionality to it, but this is not as modular as the voice commands.
-
+Update from major changes, I'm currently working on it so the communication TOKEN.txt will be updated automatically from a certain destination rather than a fixed internet request.
 
 
 
