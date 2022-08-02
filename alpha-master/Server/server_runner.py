@@ -1,157 +1,206 @@
-import threading; 
-import time;  
- 
-from Core import utility as util; 
-from Modules import text_to_speech; 
-from AudioPlayer import audio_player; 
+from calendar import isleap
+from httplib2 import Response
+from Core import utility as util;  
+#util.update_token();  
+
+#from Modules import text_to_speech; 
+#from AudioPlayer import audio_player; 
 from Core import command_listener as listener; 
 from enum import Enum; 
 from Core.server_system import *; 
-from Core.command import *;
+from Core.command import *; 
+from Core.custom_thread import StoppableThread as thread;
+from os import system;  
 
 import socket;  
 import select;  
 import time;     
+import sys; 
 
-import speech_recognition as speech_recognition_module;   
 
 class State(Enum):
     CONTINUE = 1
     EXIT = 2 
 
-input_speech = str(); 
+input_speech = str();   
 
-stop_process = State; 
-waiting_for_speech = False; 
+VOICE_COMMANDS = VoiceCommands(); #.import_commands(); 
+ 
+CONFIG, SOCK, CONN, ADDR = util.initialize_server();  
+LISTENER = listener.CommandListner(CONN, VOICE_COMMANDS); 
 
-recognizer = speech_recognition_module.Recognizer();  
-
-voice_commands = list(); 
-
-CONFIG = util.Configuration.load_config(); 
-
-HOST = CONFIG.HOST_IP; #"192.168.1.141"  # Standard loopback interface address (localhost)
-PORT = CONFIG.PORT  # Port to listen on (non-privileged ports are > 1023)
-
-ACK_TEXT = 'text_received'; 
+LISTENER_STATUS = util.Detection(); 
 
 #############################################
 #               Thread Work                 #
 #############################################
 
-def thread_speech_processor():
-    global input_speech, stop_process; 
-    while(True): 
-        if(input_speech == ""): continue;  
-        if(stop_process == State.EXIT): break; 
+def thread_network_handler(): thread_socket_listener();  
 
-        print("Assistant:", input_speech);                  
-        text_to_speech.create_sentence_wave(input_speech);  
-        audio_player.play_generated_sentence();             
-        input_speech = "";                                   
+THREAD_NETWORK = thread(target=thread_network_handler, args=[]);    
 
-def thread_socket_listener(conn:socket.socket): 
-    print("Now Listening from client"); 
+################################################
 
-    exit = False; 
-    while exit == False:  
-        while True: 
-            data = conn.recv(1024); 
+def initialize_threads():
+    THREAD_NETWORK.start();  
 
-            if not data:
-                break; 
+def kill_threads():
+    LISTENER_STATUS.stop_threads = True;  
+    THREAD_NETWORK.join(); 
 
-            ackText = data.decode('utf-8'); 
+#################################################
+#####               SPEECH                  #####
+#################################################
 
-            if ackText == "stop":
-                exit = True; 
+def output_speech(text: str): 
+    print("Assistant:", text); 
+    CONN.sendall(bytes(util.get_token("CLIENT_SPEAK", util.Source.SERVER, util.Source.CLIENT) + "|" + text, "utf-8")); 
 
-            if(ackText == ACK_TEXT): 
-                print(ackText); 
-                break; 
-            else:
-                conn.sendall(data);  
+#################################################
+#####               Network                 #####
+#################################################
 
-def output_speech(sock:socket.socket, text: str): 
-    print("Assistant:", input_speech);       
-    sock.sendall(bytes(util.get_token("CLIENT_SPEAK") + "|" + text, "utf-8")); 
+def network_sendall(message):
+    CONN.sendall(bytes(message, 'utf-8')); 
+    println("Network", "Sending packet{" + str(len(message)) + " byte(s)} with a message of", message); 
 
-def fishtank_listener(conn:socket.socket): 
+def thread_socket_listener(): 
+    print("Now Listening from client");  
+    while True:
+        #THIS IS THE THREAD KILLER, IMPORTANT
+        if LISTENER_STATUS.stop_threads == True: break; 
 
-    global voice_commands;  
+        print("Timeout, listening again"); 
+        readySocks, _, _ = select.select([CONN], [], [], 5); 
+        for sock in readySocks:   
+            process_network_packet(sock); 
+        
+#####################################################################
+#####                   RECEIVE NETWORK PACKET                  #####
+#####################################################################
 
-    def process_result(response: listener.Response):  
-        if response.result == Result.SUCCESS or response.result == Result.CONTINUE:  
-            print("     User:", response.spoken_sentence);    
-            print("  Command:", response.trigger_command); 
-            output_speech(conn, response.response_text);    
-        elif response.result == Result.EXIT:
-            output_speech(conn, "Okay"); 
-        elif response.result == Result.RELOAD: 
-            global voice_commands;  
-            voice_commands = VoiceCommand.import_commands(); 
-            output_speech(conn, response.response_text); 
-        else:
-            output_speech(conn, "Sorry, I didn't pick up what you said."); 
+def process_network_packet(sock:socket.socket):
+    println("NETWORK", "receiving packets...");  
+    data = sock.recv(1024);         
+    message = data.decode("utf-8");  
 
+    print("received: " , message); 
+
+    if util.get_token_raw("KEY_TOKEN") not in message:
+        print_warning("Network", "Received an invalid packet. Ignoring."); 
+        return; 
+
+    header, source, destination, tags, body, args = util.parse_packet_message(message);   
+
+    if destination != util.get_token_raw("SERVER_TOKEN"):
+        print_warning("Network", "Received packet(s) intended for clients. Ignoring..."); 
+        print(destination); 
+        return; 
+
+    if "*FUNC" in tags:
+        return globals()[body.lower()](args); 
+ 
+    #if body in util.get_raw_token("RETURN_REQUEST_SENTENCE_LOOP"):
+    #    spoken_sentence = args[0]; 
+    #    process_spoken_sentence_loop(spoken_sentence);  
+
+    elif body in util.get_token_raw("RETURN_REQUEST_SENTENCE"):
+        spoken_sentence = args[0]; 
+        println("Network", "RETURN_REQUEST_SENTENCE found with the sentence of", spoken_sentence); 
+
+        if util.get_token_raw("TIMEOUT") in spoken_sentence: 
+            LISTENER_STATUS.set_ready_timeout(); 
+        else: 
+            response = LISTENER.get_response(spoken_sentence); 
+            print(response.result); 
+            LISTENER_STATUS.set_ready(response); 
+    else:
+        pass; 
+
+###########################################################
+#####                PRIMARY Methods                  #####
+###########################################################
+
+def process_result(response:listener.Response):  
+    if response.result == Result.SUCCESS or response.result == Result.CONTINUE:  
+        print("     User:", response.spoken_sentence); 
+        print("  Command:", response.trigger_command); 
+        output_speech(response.response_text); 
+    elif response.result == Result.EXIT: 
+        output_speech("Okay"); 
+    elif response.result == Result.RELOAD: 
+        VOICE_COMMANDS.reload(); 
+        output_speech(response.response_text); 
+    else: 
+        output_speech("Sorry, I didn't pick up what you said."); 
+    return State.CONTINUE;  
+
+####################################################################
+#                       NETWORK FUNCTIONS                          #
+####################################################################
+
+def network_process_spoken_sentence(args): 
+    spoken_sentence:str = args[0]; 
+
+
+    if util.get_token_raw("TIMEOUT") in args: 
+        output_speech("Sorry, I didn't pick up what you said."); 
+        return; 
+
+    #this means that this is not a loop.
+    is_loop = len(args) > 1; 
+    print(args); 
+
+    if not is_loop:
+        response = LISTENER.on_receive_spoken_sentence(spoken_sentence); 
+        process_result(response); 
         return State.CONTINUE;  
 
-    loop_response = listener.voice_recognition_detect_loop(conn, voice_commands, recognizer, ["fish tank"], 10, exit_commands=[]); 
-    if loop_response.result == Result.SUCCESS: 
-        print("     User:", loop_response.spoken_sentence); 
-        output_speech(conn, 'how may I help');  
+    trigger_word = args[1]; 
+    response:listener.Response = LISTENER.on_receive_spoken_sentence_loop(spoken_sentence, [trigger_word], exit_commands=[]); 
 
-        response = listener.voice_recognition_detect(conn, voice_commands); 
-        process_result(response); 
+    if response.result == Result.SUCCESS:  
+        print("     User:", spoken_sentence); 
+        output_speech('how may I help');   
+        #response = LISTENER_REQUEST_SENTENCE_WAIT(timeout = 5); 
+        LISTENER.request_response_from_clients(timeout=10);  
 
-    elif loop_response.result == Result.CONTINUE or loop_response.result == Result.RELOAD:
-        process_result(loop_response); 
-    else:
-        output_speech(conn, "See you next time."); 
+    elif response.result == Result.CONTINUE or response.result == Result.RELOAD:
+        process_result(response);  
+    elif response.result == Result.EXIT:
+        output_speech("See you next time."); 
         return State.EXIT; 
+    else:
+        print_error("Processing Spoken Sentence", "How is this called????"); 
+        pass; 
     
     #If not exit then it has to be continue; 
-    return State.CONTINUE; 
-
-def listener_function(conn:socket):  
-    #this might be hard to read, but if the loop is returned to stop, then stop.
-    if(fishtank_listener(conn) == State.EXIT): return State.EXIT; 
-
-def initialize_socket(): 
-    # instantiate a socket object
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    println("NETWORK",'Socket Instantiated') 
-    sock.bind((HOST, PORT)) 
-    sock.listen()
-    println("NETWORK",'Socket Now Listening') 
-    conn, addr = sock.accept()#wait
-    println("NETWORK",'Socket Accepted, Got Connection Object')
-
-    return (sock, conn, addr); 
-
+    return State.CONTINUE;   
+    
 def main(): 
-    global stop_process, voice_commands;  
-    voice_commands = VoiceCommand.import_commands(); 
-    util.update_token(); 
+    initialize_threads();  
 
-    thread_network_listen = threading.Thread(target=thread_socket_listener, args=[]); 
-    thread_speech_listen = threading.Thread(target=thread_speech_processor, args=[]); 
-    thread_network_listen.start(); 
-    thread_speech_listen.start(); 
- 
-    sock, conn, addr = initialize_socket(); 
-     
     while(True): 
-        stop_process = listener_function(conn); 
-        if(stop_process == State.EXIT): break; 
+        stop_process = None; #listener_function(); 
+        if(stop_process == State.EXIT): break;  
 
-    thread_network_listen.join();  
-    thread_speech_listen.join();  
-
-    conn.sendall(bytes(util.get_token("STOP_SIGNAL"), "utf-8")); 
-    sock.close();  
+    CONN.sendall(bytes(util.get_token("STOP_SIGNAL", util.Source.SERVER, util.Source.CLIENT), "utf-8")); 
+    SOCK.close();   
+    
+    THREAD_NETWORK.join();   
 
 # end function 
 
-if __name__ == '__main__': 
-    main(); 
+
+try:
+    if __name__ == '__main__': 
+        main(); 
+except Exception as e:
+    print_error("SYSTEM", "The Server has crashed unexpectedly."); 
+    print("ERROR:", e); 
+    print("\nRestarting...");  
+    #network_sendall(util.get_token("STOP_SIGNAL", util.Source.SERVER));  
+    kill_threads(); 
+    
+    system(f"py {util.PARENT_DIR}/start.py") 
+    sys.exit("STOPPING!"); 

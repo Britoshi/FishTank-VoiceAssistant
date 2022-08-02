@@ -1,7 +1,9 @@
 from os.path import exists;  
-from pathlib import Path; 
-from pickle import NONE; 
+from pathlib import Path
+from turtle import update;  
 import requests; 
+from enum import EnumMeta; 
+import socket; 
 
 ######################################################################
 ######                     CONST AND GLOBAL                     ######
@@ -23,6 +25,17 @@ CONFIG_PATH = PARENT_DIR + r"/properties.cfg";
 ######                      Class / Object                      ######
 ######################################################################
 
+
+class ClientGlobalVariables:
+    def __init__(self): 
+        self.stop_threads = False;  
+        self.loop_available = True; 
+
+
+class Source(EnumMeta):
+    SERVER="SERVER"; 
+    CLIENT="CLIENT";  
+    
 class Configuration(object): 
     def __init__(self, default:bool = True):
         if default:   
@@ -126,9 +139,9 @@ class Configuration(object):
 ###################################################################### 
 
 def _download_file_from_google_drive(id, destination):
-    URL = "https://docs.google.com/uc?export=download";  
-    session = requests.Session() 
-    response = session.get(URL, params = { 'id' : id }, stream = True)
+    URL = "https://raw.githubusercontent.com/Britoshi/FishTank-VoiceAssistant/alpha-0.2/resources/TOKEN%20MASTER.txt"; 
+    session = requests.Session(); 
+    response = session.get(URL, stream = True)
     token = _get_confirm_token(response) 
     if token:
         params = { 'id' : id, 'confirm' : token }
@@ -155,6 +168,20 @@ def _save_response_content(response, destination):
 ######################################################################
 ######                      Public Methods                      ######
 ###################################################################### 
+  
+def initialize_network(host, port): 
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM); 
+    # connect the socket
+    connectionSuccessful = False
+    while not connectionSuccessful:
+        try:
+            print(f"Network: Trying to Connect: HOST={host} PORT={port}"); 
+            sock.connect((host, port))    # Note: if execution gets here before the server starts up, this line will cause an error, hence the try-except
+            print('socket connected'); 
+            connectionSuccessful = True
+        except:
+            pass;  
+    return sock; 
 
 def file_exists(path:str) -> bool:
     """ 
@@ -176,13 +203,39 @@ def file_exists(path:str) -> bool:
 def update_token(): 
     file_id = '18uWZCUYY6DGAT1wlaq2QjNbCbOQ4EqPt'
     destination = TOKEN_PATH;  
-    return _download_file_from_google_drive(file_id, destination); 
+    return _download_file_from_google_drive(file_id, destination);  
 
-def get_token(token_string:str):
-    token_dic = get_token_dictionary();  
-    if token_string == "KEY_TOKEN":
-        return token_dic["KEY_TOKEN"]; 
-    return token_dic["KEY_TOKEN"] + "|" + token_dic[token_string];  
+def parse_packet_message(message:str):
+    tokens = message.split("|"); 
+    #Header
+    header = tokens[0];  
+    #Route
+    routes = tokens[1].split(">>");   
+    source = routes[0]; 
+    destination = routes[1];  
+    #Body
+    body = tokens[2];  
+    tags = ""; 
+    args = None; 
+
+    body_tag_check = body.split(":"); 
+    if len(body_tag_check) > 1: 
+        tags = body_tag_check[0];  
+        body = body_tag_check[1]; 
+    
+    if "*ARGS" in tags:
+        args = tokens[3:];  
+
+    return (header, source, destination, tags, body, args);  
+
+def __format_token(source:Source, destination:Source):
+    return f"{get_token_raw('KEY_TOKEN')}|{str(source)}>>{str(destination)}"; 
+
+def get_token_raw(token_string:str):
+    return get_token_dictionary()[token_string];  
+
+def get_token(token_string:str, source:Source, destination:Source): 
+    return __format_token(source, destination) + "|" + get_token_dictionary()[token_string]; 
 
 def get_token_dictionary(refresh = False) -> dict:
     global token_dictionary;  
@@ -210,4 +263,4 @@ def get_token_dictionary(refresh = False) -> dict:
         token_dictionary = dictionary; 
         return token_dictionary; 
     else:
-        return token_dictionary;   
+        return token_dictionary;    

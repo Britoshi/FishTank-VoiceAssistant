@@ -3,7 +3,7 @@ from urllib.request import urlopen, Request
 from Core.command import *; 
 
 
-def menu_today(spoken_sentence:str, command: VoiceCommand, args: list):
+def menu_today(spoken_sentence:str, command: VoiceCommand, args: list, **extra):
     
 
     """

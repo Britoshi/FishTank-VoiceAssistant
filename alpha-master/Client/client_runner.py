@@ -3,93 +3,161 @@ import speech_recognition;
 import socket;
 import select;
 import time;
-import pickle; 
+import pickle;
+import threading;  
 from enum import IntEnum;
 from Modules import utility as util; 
+#util.update_token(); 
+
 from Modules import text_to_speech;
 from AudioPlayer import audio_player;
+from os import system;   
+import sys;
 
 CONFIG = util.Configuration.load_config(); 
 
 HOST = CONFIG.HOST_IP; 
-PORT = CONFIG.PORT; 
-
-ACK_TEXT = 'text_received'
+PORT = CONFIG.PORT;  
  
 RECOGNIZER = speech_recognition.Recognizer(); 
+RECOGNIZER_BACKGROUND = speech_recognition.Recognizer(); 
 MICROPHONE = speech_recognition.Microphone();  
+MICROPHONE_BACKGROUND = speech_recognition.Microphone();  
+
+#RECOGNIZER.dynamic_energy_threshold = False; 
+#RECOGNIZER.energy_threshold = 400;  
+
+CLIENT_VARIABLE = util.ClientGlobalVariables();  
+
+SOCK = util.initialize_network(HOST, PORT); 
+
+#################################################################
+#####                      CLIENT THREAD                    #####
+#################################################################
+
+def thread_network_handler(): thread_socket_listener(); 
+def thread_noise_handler(): thread_noise_adjuster ();  
+
+THREAD_NETWORK = threading.Thread(target=thread_network_handler, args=[]);    
+THREAD_NOISE = threading.Thread(target=thread_noise_handler, args=[]); 
+
+LOCK = threading.Lock(); 
+
+#################################################################
+
+def initialize_threads():
+    THREAD_NETWORK.start();  
+    #THREAD_NOISE.start(); 
+
+
+def kill_threads():
+    CLIENT_VARIABLE.stop_threads = True;  
+    THREAD_NETWORK.join(); 
+    #THREAD_NOISE.join(); 
+
+#################################################################
+#####                      THREAD WORKS                     #####
+#################################################################
+
+def thread_socket_listener():
+    machine_state = State.CONTINUE;  
+    while True:
+        if CLIENT_VARIABLE.stop_threads: break; 
+
+        readySocks, _, _ = select.select([SOCK], [], [], 1); 
+        for sock in readySocks: 
+            states = receive_request(sock);   
+            
+            if State.FAIL in states:
+                raise Exception("Something went definitely wrong, check it.");   
+
+            machine_state = states[-1];    
+
+def thread_noise_adjuster():
+    refresh_thresh_hold = 15; 
+    seconds_interval = 1; 
+
+    seconds_passed = 0; 
+    while CLIENT_VARIABLE.stop_threads == False: 
+        if seconds_passed >= refresh_thresh_hold: 
+            RECOGNIZER.adjust_for_ambient_noise(MICROPHONE, duration=5); 
+        
+        time.sleep(seconds_interval); 
+        seconds_passed += seconds_interval; 
+
+ 
+
+
+#################################################################
+#####                       OTHER FUNC                      #####
+#################################################################
+
+
+
+def background_task_callback(recognizer:speech_recognition.Recognizer, audio):  
+    if not CLIENT_VARIABLE.loop_available: return;  
+
+    spoken_sentence = str();  
+    try:
+        spoken_sentence:str = recognizer.recognize_google(audio);  
+        print("PICKED UP:", spoken_sentence); 
+    except speech_recognition.UnknownValueError:
+        return; #print("Google Speech Recognition could not understand audio")
+    except speech_recognition.RequestError as e:
+        return; #print("Could not request results from Google Speech Recognition service; {0}".format(e))
+
+    #Check if fishtank is in the sentence
+    trigger_word = "fish tank"; 
+    if trigger_word in spoken_sentence.lower():
+        #First Check if the server recognizes any of the words. 
+        CLIENT_VARIABLE.loop_available = False;  
+ 
+        message = spoken_sentence + "|" + trigger_word;    
+        __network_send_return_sentence(SOCK, message);  
+
+        #If it returns false
+        #spoken_sentence = listen_sentence_input(timeout); 
+
+
+
+    
+
+
+def initialize_background_process():
+    listener = RECOGNIZER_BACKGROUND.listen_in_background(MICROPHONE_BACKGROUND, background_task_callback);  
+
 
 class State(IntEnum): 
     SUCCESS = 0     
     FAIL = 1     
     CONTINUE = 2
-    EXIT = 3 
-
-def get_token(token_string:str): 
-    return util.get_token(token_string); 
+    EXIT = 3  
 
 def listen_sentence_input(timeout): 
     try:
         with MICROPHONE as source:
+            RECOGNIZER.adjust_for_ambient_noise(MICROPHONE);    
             recorded_audio = RECOGNIZER.listen(source, timeout = timeout);  
-            spoken_sentence = RECOGNIZER.recognize_google(recorded_audio); 
+            spoken_sentence = RECOGNIZER.recognize_google(recorded_audio);  
             return spoken_sentence; 
 
     except (speech_recognition.UnknownValueError, speech_recognition.WaitTimeoutError):
-        return None; 
- 
-def send_data(data):   
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((HOST, PORT)); 
-        s.sendall(bytes(data)); 
-        return_data = s.recv(1024); 
- 
-    return return_data; 
+        return None;  
 
-def main():  
-    util.update_token(); 
-    
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM); 
-    print('socket instantiated'); 
+##################################################################
+###################      MAIN FUNCTION        ####################
+################################################################## 
 
-    # connect the socket
-    connectionSuccessful = False
-    while not connectionSuccessful:
-        try:
-            sock.connect((HOST, PORT))    # Note: if execution gets here before the server starts up, this line will cause an error, hence the try-except
-            print('socket connected'); 
-            connectionSuccessful = True
-        except:
-            pass; 
+def main():    
+    initialize_threads(); 
+    initialize_background_process(); 
 
-    machine_state = State.CONTINUE;  
-    while True: #machine_state != State.EXIT:   
-        readySocks, _, _ = select.select([sock], [], [], 1); 
-        for sock in readySocks: 
-            state = receive_request(sock);   
-            
-            if state == State.FAIL:
-                raise Exception("Something went definately wrong, check it.");   
-            machine_state = state;  
-
+    while CLIENT_VARIABLE.stop_threads == False:
+        pass;   
+        
 ##################################################################
 ###################    PROCESS FUNCTIONS      ####################
-##################################################################
-
-def process_packet(packet_message:str):
-    splits = packet_message.split("|"); 
-    title = splits[1].strip().upper(); 
-
-    function_string = ""; 
-
-    if "*FUNC" in title:
-        function_string = title[title.index(":") + 1:]; 
-
-    if "*ARGS" not in title:
-        return (title, list(), function_string);  
-
-    args = splits[2].split(','); 
-    return (title, args, function_string); 
+################################################################## 
 
 def query_arguments(key, args):
     for arg in args:
@@ -99,12 +167,20 @@ def query_arguments(key, args):
             try:
                 return split[1]; 
             except:
-                raise Exception("Arguements pass down must be dictated with '=' sign to assign!\n" + "Got: " + arg);  
+                raise Exception("Arguments pass down must be dictated with '=' sign to assign!\n" + "Got: " + arg);  
     raise NotFoundErr("Your key doesn't exit!?"); 
 
 #################################################################
 #               NETWORK METHODS SEND BACK METHODS               #
 #################################################################
+
+def __network_send_return_sentence(sock:socket.socket, spoken_sentence:str):
+    message = util.get_token("RETURN_REQUEST_SENTENCE", util.Source.CLIENT, util.Source.SERVER) + "|"; 
+
+    if(spoken_sentence == None): message += util.get_token_raw("TIMEOUT");  
+    else: message += spoken_sentence;  
+
+    sock.sendall(bytes(message, 'utf-8'));  
 
 def network_request_sentence(sock:socket.socket, args:list): 
 
@@ -117,18 +193,14 @@ def network_request_sentence(sock:socket.socket, args:list):
     # send the encoded acknowledgement text 
     spoken_sentence = listen_sentence_input(timeout); 
 
-    print('sending audio...');  
-    if(spoken_sentence == None):
-        sock.sendall(bytes(get_token("TIMEOUT"), 'utf-8')); 
-    else:
-        message = get_token("KEY_TOKEN") + "|"; 
-        message += get_token("RETURN_REQUEST_SENTENCE") + "|"; 
-        message += spoken_sentence;  
-        sock.sendall(bytes(message, 'utf-8')); 
-    
+    __network_send_return_sentence(sock, spoken_sentence);  
     return State.SUCCESS; 
 
-def network_speak(sock:socket.socket, args:list):            
+def network_speak(sock:socket.socket, args:list):    
+    
+    #TEMP
+    CLIENT_VARIABLE.loop_available = True; 
+
     text_to_speech.create_sentence_wave(args[0]);  
     audio_player.play_generated_sentence();    
     return State.EXIT; 
@@ -143,7 +215,7 @@ def network_exit(sock:socket.socket, args:list):
 
 import re;
 
-def receive_request(sock: socket.socket):
+def receive_request(sock):
     # get the text via the scoket
     encodedMessage = sock.recv(1024); 
 
@@ -156,31 +228,56 @@ def receive_request(sock: socket.socket):
 
     print("Received", message, "from the server"); 
 
-    if get_token("KEY_TOKEN") not in message: 
-        print("Received something that is not a request. Message:", message); 
+    if util.get_token_raw("KEY_TOKEN") not in message:  
+        print("Received an invalid token. Message:", message); 
         return "None"; 
+    
+    return_list = []; 
 
-    token_occurance = [occurance.start() for occurance in re.finditer(get_token("KEY_TOKEN"), message)]; 
-    length = len(token_occurance)
+    token_occurrence = [occurrence.start() for occurrence in re.finditer(util.get_token_raw("KEY_TOKEN"), message)];
+
+    print("OCCURRENCE", token_occurrence); 
+    length = len(token_occurrence)
+
+    '''
+    This is only going to happen since I receive a packet size of 1024 bytes. If the two packets those were sent are smaller than
+    or totals up to 1024 bytes, then they'll be packed into one packet. So I have to split the two using the header packet and 
+    process them separately.
+    '''
     for i in range(length): 
-        occur_index = token_occurance[i];  
+        occur_index = token_occurrence[i];  
         tokened_message = str();  
 
         if i + 1 == length:
             tokened_message = message[occur_index:]; 
         else:
-            next_index = token_occurance[i + 1]; 
+            next_index = token_occurrence[i + 1]; 
             tokened_message = message[occur_index:next_index]; 
 
-        title, args, function_string = process_packet(tokened_message); 
+        header, source, destination, tags, body, args = util.parse_packet_message(tokened_message); 
     
-        if function_string == "":
-            continue;  #if it is a function
+        if destination != util.get_token_raw("CLIENT_TOKEN"):
+            print("Received packet(s) intended for server, ignoring..."); 
+            continue; 
 
-        return globals()[function_string.lower()](sock, args);  
+        if "*FUNC" not in tags:
+            continue;  #if it is a function 
 
-# end function
-# 
+        return_list.append(globals()[body.lower()](sock, args));  
+    return return_list; 
 
-if __name__ == '__main__': 
-    main(); 
+# end function 
+
+
+try: 
+    if __name__ == '__main__': 
+        main(); 
+        
+except Exception as e:
+    print("SYSTEM", "The Client has crashed unexpectedly."); 
+    print("ERROR:", e); 
+    print("\nRestarting...");  
+    #network_sendall(util.get_token("STOP_SIGNAL", util.Source.SERVER));  
+    kill_threads(); 
+    system(f"py {util.PARENT_DIR}/start.py") 
+    sys.exit("STOPPING!"); 

@@ -6,7 +6,12 @@ import pandas as pd;
 import os, glob, sys; 
 import inspect; 
 import math;  
+from Core.command import *;
+from Core.command_listener import Response; 
 from Core.server_system import *; 
+import socket; 
+from enum import Enum;
+from enum import EnumMeta;
 
 global token_dictionary; 
 token_dictionary = None; 
@@ -18,13 +23,52 @@ TOKEN_PATH = PARENT_DIR + r"/Resources/TOKEN.txt";
 CONFIG_PATH = PARENT_DIR + r"/properties.cfg";  
 
 sys.path.insert(0, PARENT_DIR);  
+ 
 
 ######################################################################
 ######                      Class / Object                      ######
 ######################################################################
 
-class Configuration(object): 
+class Source(EnumMeta):
+    SERVER="SERVER"; 
+    CLIENT="CLIENT";  
+
+class Detection:
+    def __init__(self):
+        self.spoken_sentence:str = ""; 
+        self.result = None; 
+        self.response:Response = None; 
+        self.response_text:str = None;  
+        self.trigger_command = None; 
+        self.fishtank_seek = False; 
+        self.ready:bool = False; 
+
+        self.stop_threads = False; 
     
+    def wait(self):
+        self.spoken_sentence = ""; 
+        self.response = None; 
+        self.result = None; 
+        self.response_text:str = None; 
+        self.trigger_command = None; 
+        self.fishtank_seek = False; 
+        self.ready = False; 
+
+    def set_ready(self, response:Response):
+        self.response = response; 
+        self.result = response.result; 
+        self.response_text:str = response.response_text;  
+        self.spoken_sentence:str = response.spoken_sentence;  
+        self.trigger_command = response.trigger_command; 
+        self.ready = True; 
+
+    def set_ready_timeout(self):
+        self.ready= True; 
+        self.result = Result.TIMEOUT; 
+
+
+class Configuration(object): 
+
     def __init__(self, default:bool = True):
         if default:   
             self.HOST_IP = "192.168.1.101"; 
@@ -75,19 +119,19 @@ class Configuration(object):
 
             config_name = tokens[0].strip(); 
             config_content = tokens[1].strip();  
-            match config_name:
-                case "HOST_IP":
-                    configuration.HOST_IP = config_content; 
-                case "PORT":
-                    try:
-                        configuration.PORT = int(config_content); 
-                    except:
-                        print_error("Configuration", "PORT MUST BE A NUMBER GREATER THAN 1024 AND MUST NOT CONTAIN ANY ALPHABETS! LOADING DEFAULT CONFIGURATION"); 
-                        return error_reroute(); 
-                case _:
-                    print_warning("Configuration", f"Given Config name of '{config_name}' does not match. Ignoring and continuing"); 
-                    cls.__print_github(); 
-                    continue; 
+            
+            if config_name == "HOST_IP":
+                configuration.HOST_IP = config_content; 
+            elif config_name == "PORT":
+                try:
+                    configuration.PORT = int(config_content); 
+                except:
+                    print_error("Configuration", "PORT MUST BE A NUMBER GREATER THAN 1024 AND MUST NOT CONTAIN ANY ALPHABETS! LOADING DEFAULT CONFIGURATION"); 
+                    return error_reroute(); 
+            else:
+                print_warning("Configuration", f"Given Config name of '{config_name}' does not match. Ignoring and continuing"); 
+                cls.__print_github(); 
+                continue; 
 
             if config_name in duplicate_detector:
                 print_warning("Configuration", f"The given config name '{config_name}' is a duplicate, please make sure there's only one."); 
@@ -128,13 +172,13 @@ class Configuration(object):
 ###################################################################### 
 
 
-def __download_file_from_google_drive(id, destination):
-    URL = "https://docs.google.com/uc?export=download"; 
+def __download_file_from_google_drive(destination):
+    URL = "https://raw.githubusercontent.com/Britoshi/FishTank-VoiceAssistant/alpha-0.2/resources/TOKEN%20MASTER.txt"; 
     session = requests.Session(); 
-    response = session.get(URL, params = { 'id' : id }, stream = True)
+    response = session.get(URL, stream = True)
     token = __get_confirm_token(response); 
     if token:
-        params = { 'id' : id, 'confirm' : token }
+        params = { 'confirm' : token }
         response = session.get(URL, params = params, stream = True) 
     __save_response_content(response, destination)    
 
@@ -175,17 +219,55 @@ def file_exists(path:str) -> bool:
     """ 
     return exists(path);   
 
+def initialize_server():   
+    config = Configuration.load_config();    
+    # instantiate a socket object
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM); 
+    println("NETWORK",'Socket Instantiated'); 
+    sock.bind((config.HOST_IP, config.PORT)); 
+    sock.listen(); 
+    println("NETWORK",'Socket Now Listening'); 
+    conn, addr = sock.accept(); #wait
+    println("NETWORK",'Socket Accepted, Got Connection Object'); 
+    return (config, sock, conn, addr);  
 
-def update_token(): 
-    file_id = '18uWZCUYY6DGAT1wlaq2QjNbCbOQ4EqPt'
-    destination = TOKEN_PATH;  
-    return __download_file_from_google_drive(file_id, destination); 
+def update_token():  
+    destination = TOKEN_PATH;   
+    return __download_file_from_google_drive(destination);  
 
-def get_token(token_string:str):
-    token_dic = get_token_dictionary();  
-    if token_string == "KEY_TOKEN":
-        return token_dic["KEY_TOKEN"]; 
-    return token_dic["KEY_TOKEN"] + "|" + token_dic[token_string]; 
+
+
+def parse_packet_message(message:str):
+    tokens = message.split("|"); 
+    #Header
+    header = tokens[0];  
+    #Route
+    routes = tokens[1].split(">>");   
+    source = routes[0]; 
+    destination = routes[1];  
+    #Body
+    body = tokens[2];  
+    tags = ""; 
+    args = None; 
+
+    body_tag_check = body.split(":"); 
+    if len(body_tag_check) > 1: 
+        tags = body_tag_check[0];  
+        body = body_tag_check[1]; 
+    
+    if "*ARGS" in tags:
+        args = tokens[3:];  
+
+    return (header, source, destination, tags, body, args);  
+
+def __format_token(source:Source, destination:Source):
+    return f"{get_token_raw('KEY_TOKEN')}|{str(source)}>>{str(destination)}"; 
+
+def get_token_raw(token_string:str):
+    return get_token_dictionary()[token_string];  
+
+def get_token(token_string:str, source:Source, destination:Source): 
+    return __format_token(source, destination) + "|" + get_token_dictionary()[token_string]; 
 
 def get_token_dictionary(refresh = False) -> dict:
     global token_dictionary;  

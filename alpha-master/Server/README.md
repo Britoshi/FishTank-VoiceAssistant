@@ -126,21 +126,16 @@ from Core.command import *
 ```
 While this is optional technically, I strongly suggest doing it for many reasons.
 
-After adding that in, then it's time to add in the function. Name it whatever you want, and remember to add the three parameters: spoken_sentence, command, args, and extra.
+After adding that in, then it's time to add in the function. Name it whatever you want, and remember to add the three parameters: spoken_sentence, command, and args.
 ```
-def my_voice_command_function(spoken_sentence:str, command: VoiceCommand, args: list, **extra):
+def my_voice_command_function(spoken_sentence:str, command: VoiceCommand, args: list):
 ```
-```spoken_sentence``` is the sentence that the user has spoken into the microphone.
-```command``` is the VoiceCommand object that the method may use.
-```args``` is the arguments those are passed down, usually if the function has a query list, then the queried words will be passed down to the list.
-```**extra``` is for advanced use.
-
 Inside, you can do anything. In this example, I'll show you what it is capable of:
 ```
 from Core.command import *
 import math
 
-def power_two_numbers(spoken_sentence:str, command: VoiceCommand, args: list, **extra):
+def power_two_numbers(spoken_sentence:str, command: VoiceCommand, args: list):
     first_number = int(args[0])
     second_number = int(args[1])
 
