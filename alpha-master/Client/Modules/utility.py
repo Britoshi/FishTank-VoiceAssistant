@@ -205,19 +205,16 @@ def update_token():
     destination = TOKEN_PATH;  
     return _download_file_from_google_drive(file_id, destination);  
 
-
 def parse_packet_message(message:str):
     tokens = message.split("|"); 
-    header = tokens[0]; 
-    source = str(); 
-    if get_raw_token("SERVER_TOKEN") in header:
-        source = get_raw_token("SERVER_TOKEN"); 
-    else: source = get_raw_token("CLIENT_TOKEN"); 
-
-    if get_raw_token("KEY_TOKEN") in header:
-        header = get_raw_token("KEY_TOKEN"); 
-
-    body = tokens[1];  
+    #Header
+    header = tokens[0];  
+    #Route
+    routes = tokens[1].split(">>");   
+    source = routes[0]; 
+    destination = routes[1];  
+    #Body
+    body = tokens[2];  
     tags = ""; 
     args = None; 
 
@@ -227,30 +224,18 @@ def parse_packet_message(message:str):
         body = body_tag_check[1]; 
     
     if "*ARGS" in tags:
-        args = tokens[2:];  
+        args = tokens[3:];  
 
-    return (header, source, tags, body, args); 
-def get_raw_token(token_string:str):
-    return get_token_dictionary()[token_string]; 
+    return (header, source, destination, tags, body, args);  
 
-def get_token(token_string:str, source:Source = None):
+def __format_token(source:Source, destination:Source):
+    return f"{get_token_raw('KEY_TOKEN')}|{str(source)}>>{str(destination)}"; 
 
+def get_token_raw(token_string:str):
+    return get_token_dictionary()[token_string];  
 
-    source_text = str();  
-    token_dic = get_token_dictionary();   
-
-    if source != None: #if not none
-        source_text += str(source) + ">>"; 
-
-        if "TOKEN" in token_string:
-            return token_dic[token_string] + source_text; 
-
-        # else: return token_dic[token_string]; 
-    else: #if none;
-        if "TOKEN" in token_string:
-            return token_dic[token_string];  
-
-    return token_dic["KEY_TOKEN"] + source_text + "|" + token_dic[token_string]; 
+def get_token(token_string:str, source:Source, destination:Source): 
+    return __format_token(source, destination) + "|" + get_token_dictionary()[token_string]; 
 
 def get_token_dictionary(refresh = False) -> dict:
     global token_dictionary;  

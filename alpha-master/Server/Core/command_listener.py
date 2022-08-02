@@ -15,10 +15,7 @@ class Response:
 
 #################################################
 #               Command Functions               #
-#################################################
-
-def get_token(token_string:str, source): 
-    return util.get_token(token_string, source = source); 
+################################################# 
 
 class CommandListner:
     def __init__(self, socket:socket.socket, voice_commands:VoiceCommands):
@@ -33,7 +30,7 @@ class CommandListner:
         if timeout == None:
             timeout == self.loop_timeout; 
 
-        sentence = get_token("REQUEST_SENTENCE", util.Source.SERVER) + "|TIMEOUT=" + str(timeout); 
+        sentence = util.get_token("REQUEST_SENTENCE", util.Source.SERVER, util.Source.CLIENT) + "|TIMEOUT=" + str(timeout); 
         encodedMessage = bytes(sentence, 'utf-8'); 
         self.socket.sendall(encodedMessage);  
 

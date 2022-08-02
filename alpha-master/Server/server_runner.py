@@ -54,7 +54,7 @@ def kill_threads():
 
 def output_speech(text: str): 
     print("Assistant:", text); 
-    CONN.sendall(bytes(util.get_token("CLIENT_SPEAK", util.Source.SERVER) + "|" + text, "utf-8")); 
+    CONN.sendall(bytes(util.get_token("CLIENT_SPEAK", util.Source.SERVER, util.Source.CLIENT) + "|" + text, "utf-8")); 
 
 #################################################
 #####               Network                 #####
@@ -80,20 +80,21 @@ def thread_socket_listener():
 #####################################################################
 
 def process_network_packet(sock:socket.socket):
-    println("NETWORK", "receiving packets...", end = " ");  
+    println("NETWORK", "receiving packets...");  
     data = sock.recv(1024);         
     message = data.decode("utf-8");  
 
     print("received: " , message); 
 
-    if util.get_token("KEY_TOKEN") not in message:
+    if util.get_token_raw("KEY_TOKEN") not in message:
         print_warning("Network", "Received an invalid packet. Ignoring."); 
         return; 
 
-    header, source, tags, body, args = util.parse_packet_message(message);   
+    header, source, destination, tags, body, args = util.parse_packet_message(message);   
 
-    if source != util.get_token("CLIENT_TOKEN"):
-        print_warning("Network", "Received packet from server, receiving self packets. Just ignoring.")
+    if destination != util.get_token_raw("SERVER_TOKEN"):
+        print_warning("Network", "Received packet(s) intended for clients. Ignoring..."); 
+        print(destination); 
         return; 
 
     if "*FUNC" in tags:
@@ -103,11 +104,11 @@ def process_network_packet(sock:socket.socket):
     #    spoken_sentence = args[0]; 
     #    process_spoken_sentence_loop(spoken_sentence);  
 
-    elif body in util.get_raw_token("RETURN_REQUEST_SENTENCE"):
+    elif body in util.get_token_raw("RETURN_REQUEST_SENTENCE"):
         spoken_sentence = args[0]; 
         println("Network", "RETURN_REQUEST_SENTENCE found with the sentence of", spoken_sentence); 
 
-        if util.get_raw_token("TIMEOUT") in spoken_sentence: 
+        if util.get_token_raw("TIMEOUT") in spoken_sentence: 
             LISTENER_STATUS.set_ready_timeout(); 
         else: 
             response = LISTENER.get_response(spoken_sentence); 
@@ -142,7 +143,7 @@ def network_process_spoken_sentence(args):
     spoken_sentence:str = args[0]; 
 
 
-    if util.get_raw_token("TIMEOUT") in args: 
+    if util.get_token_raw("TIMEOUT") in args: 
         output_speech("Sorry, I didn't pick up what you said."); 
         return; 
 
@@ -183,7 +184,7 @@ def main():
         stop_process = None; #listener_function(); 
         if(stop_process == State.EXIT): break;  
 
-    CONN.sendall(bytes(util.get_token("STOP_SIGNAL", util.Source.SERVER), "utf-8")); 
+    CONN.sendall(bytes(util.get_token("STOP_SIGNAL", util.Source.SERVER, util.Source.CLIENT), "utf-8")); 
     SOCK.close();   
     
     THREAD_NETWORK.join();   

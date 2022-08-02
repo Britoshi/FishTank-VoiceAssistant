@@ -99,7 +99,7 @@ def background_task_callback(recognizer:speech_recognition.Recognizer, audio):
 
     spoken_sentence = str();  
     try:
-        spoken_sentence = recognizer.recognize_google(audio);  
+        spoken_sentence:str = recognizer.recognize_google(audio);  
         print("PICKED UP:", spoken_sentence); 
     except speech_recognition.UnknownValueError:
         return; #print("Google Speech Recognition could not understand audio")
@@ -111,12 +111,10 @@ def background_task_callback(recognizer:speech_recognition.Recognizer, audio):
     if trigger_word in spoken_sentence.lower():
         #First Check if the server recognizes any of the words. 
         CLIENT_VARIABLE.loop_available = False;  
+ 
+        message = spoken_sentence + "|" + trigger_word;    
+        __network_send_return_sentence(SOCK, message);  
 
-        message = get_token("RETURN_REQUEST_SENTENCE_LOOP", util.Source.CLIENT) + "|"; 
-        message += spoken_sentence + "|" + trigger_word;  
-
-        SOCK.sendall(bytes(message, 'utf-8')); 
-        
         #If it returns false
         #spoken_sentence = listen_sentence_input(timeout); 
 
@@ -133,10 +131,7 @@ class State(IntEnum):
     SUCCESS = 0     
     FAIL = 1     
     CONTINUE = 2
-    EXIT = 3 
-
-def get_token(token_string:str, source = None): 
-    return util.get_token(token_string, source=source); 
+    EXIT = 3  
 
 def listen_sentence_input(timeout): 
     try:
@@ -158,11 +153,8 @@ def main():
     initialize_background_process(); 
 
     while CLIENT_VARIABLE.stop_threads == False:
-        pass; 
-
-
-    
-
+        pass;   
+        
 ##################################################################
 ###################    PROCESS FUNCTIONS      ####################
 ################################################################## 
@@ -182,6 +174,14 @@ def query_arguments(key, args):
 #               NETWORK METHODS SEND BACK METHODS               #
 #################################################################
 
+def __network_send_return_sentence(sock:socket.socket, spoken_sentence:str):
+    message = util.get_token("RETURN_REQUEST_SENTENCE", util.Source.CLIENT, util.Source.SERVER) + "|"; 
+
+    if(spoken_sentence == None): message += util.get_token_raw("TIMEOUT");  
+    else: message += spoken_sentence;  
+
+    sock.sendall(bytes(message, 'utf-8'));  
+
 def network_request_sentence(sock:socket.socket, args:list): 
 
     queried_value = query_arguments("TIMEOUT", args);   
@@ -193,16 +193,7 @@ def network_request_sentence(sock:socket.socket, args:list):
     # send the encoded acknowledgement text 
     spoken_sentence = listen_sentence_input(timeout); 
 
-    print('sending audio...');  
-    if(spoken_sentence == None): 
-        message = get_token("RETURN_REQUEST_SENTENCE", util.Source.CLIENT) + "|"; 
-        message += util.get_raw_token("TIMEOUT");  
-        sock.sendall(bytes(message, 'utf-8')); 
-    else: 
-        message = get_token("RETURN_REQUEST_SENTENCE", util.Source.CLIENT) + "|"; 
-        message += spoken_sentence;  
-        sock.sendall(bytes(message, 'utf-8')); 
-    
+    __network_send_return_sentence(sock, spoken_sentence);  
     return State.SUCCESS; 
 
 def network_speak(sock:socket.socket, args:list):    
@@ -237,15 +228,22 @@ def receive_request(sock):
 
     print("Received", message, "from the server"); 
 
-    if util.get_raw_token("KEY_TOKEN") not in message:  
+    if util.get_token_raw("KEY_TOKEN") not in message:  
         print("Received an invalid token. Message:", message); 
         return "None"; 
     
     return_list = []; 
 
-    token_occurrence = [occurrence.start() for occurrence in re.finditer(util.get_raw_token("KEY_TOKEN"), message)]; 
+    token_occurrence = [occurrence.start() for occurrence in re.finditer(util.get_token_raw("KEY_TOKEN"), message)];
+
     print("OCCURRENCE", token_occurrence); 
     length = len(token_occurrence)
+
+    '''
+    This is only going to happen since I receive a packet size of 1024 bytes. If the two packets those were sent are smaller than
+    or totals up to 1024 bytes, then they'll be packed into one packet. So I have to split the two using the header packet and 
+    process them separately.
+    '''
     for i in range(length): 
         occur_index = token_occurrence[i];  
         tokened_message = str();  
@@ -256,10 +254,15 @@ def receive_request(sock):
             next_index = token_occurrence[i + 1]; 
             tokened_message = message[occur_index:next_index]; 
 
-        header, source, tags, body, args = util.parse_packet_message(tokened_message); 
+        header, source, destination, tags, body, args = util.parse_packet_message(tokened_message); 
     
+        if destination != util.get_token_raw("CLIENT_TOKEN"):
+            print("Received packet(s) intended for server, ignoring..."); 
+            continue; 
+
         if "*FUNC" not in tags:
             continue;  #if it is a function 
+
         return_list.append(globals()[body.lower()](sock, args));  
     return return_list; 
 
