@@ -4,6 +4,8 @@ from turtle import update;
 import requests; 
 from enum import EnumMeta; 
 import socket; 
+from os import system; 
+from sys import platform; 
 
 ######################################################################
 ######                     CONST AND GLOBAL                     ######
@@ -37,28 +39,30 @@ class Source(EnumMeta):
     CLIENT="CLIENT";  
     
 class Configuration(object): 
+
     def __init__(self, default:bool = True):
         if default:   
-            self.HOST_IP = "192.168.1.101"; 
-            self.PORT = "42069"; 
+            self.HOST_IP = "localhost"; 
+            self.PORT = 42069;  
+
         else:
             self.HOST_IP = None; 
-            self.PORT = None;   
+            self.PORT = None;    
  
     def to_readable(self):
         text = "#FishTank Voice Assistant Configuration Version 0.1\n"; 
         text += "HOST_IP=" + self.HOST_IP + "\n"; 
-        text += "PORT=" + self.PORT; 
+        text += "PORT=" + str(self.PORT); 
         return text; 
 
     @staticmethod
     def __print_github():
-        print(r"Please Read: https://github.com/Britoshi/FishTank-VoiceAssistant/tree/main/alpha-master/Client#%EF%B8%8F-configuration"); 
+        print(r"https://github.com/Britoshi/FishTank-VoiceAssistant/tree/main/alpha-master/Client#%EF%B8%8F-configuration"); 
  
     @classmethod
     def load_config(cls):
         """ 
-        Parses the configuration file and return it as usuable dictionary object.  
+        Parses the configuration file and return it as usable dictionary object.  
 
         If the configuration file does not exist, the configuration file is automatically generated.
 
@@ -68,7 +72,7 @@ class Configuration(object):
             The Configuration parsed from the existing file. 
         """ 
         if not file_exists(CONFIG_PATH): 
-            print("Configuration: No configuration file found, generating one at: " + CONFIG_PATH); 
+            print("Configuration", "No configuration file found, generating one at: " + CONFIG_PATH); 
             return Configuration.generate_config(); 
 
         configuration = Configuration(default = False);  
@@ -77,9 +81,10 @@ class Configuration(object):
         file = open(CONFIG_PATH, "r"); 
         for line in file.readlines():
             #Checks
+            if len(line.strip()) == 0: continue; 
             if line[0] == "#" : continue; 
             if "=" not in line: 
-                print("WARNING: Incorrect formating in confiration file. Ignoring and continuing."); 
+                print("Configuration", "Incorrect formatting in configuration file. Ignoring and continuing."); 
                 cls.__print_github(); 
                 continue; 
             #If nothing's wrong
@@ -87,35 +92,35 @@ class Configuration(object):
 
             config_name = tokens[0].strip(); 
             config_content = tokens[1].strip();  
-            match config_name:
-                case "HOST_IP":
-                    configuration.HOST_IP = config_content; 
-                case "PORT":
-                    try:
-                        configuration.PORT = int(config_content); 
-                    except:
-                        print("ERROR: PORT MUST BE A NUMBER GREATER THAN 1024 AND MUST NOT CONTAIN ANY ALPHABETS! LOADING DEFAULT CONFIGURATION"); 
-                        return error_reroute(); 
-                case _:
-                    print(f"WARNING: Given Config name of '{config_name}' does not match. Ignoring and continuing"); 
-                    cls.__print_github(); 
-                    continue; 
+            
+            if config_name == "HOST_IP":
+                configuration.HOST_IP = config_content; 
+            elif config_name == "PORT":
+                try:
+                    configuration.PORT = int(config_content); 
+                except:
+                    print("Configuration", "PORT MUST BE A NUMBER GREATER THAN 1024 AND MUST NOT CONTAIN ANY ALPHABETS! LOADING DEFAULT CONFIGURATION"); 
+                    return error_reroute();  
+            else:
+                print("Configuration", f"Given Config name of '{config_name}' does not match. Ignoring and continuing"); 
+                cls.__print_github(); 
+                continue; 
 
             if config_name in duplicate_detector:
-                print(f"WARNING: The given config name '{config_name}' is a duplicate, please make sure there's only one."); 
+                print("Configuration", f"The given config name '{config_name}' is a duplicate, please make sure there's only one."); 
                 continue; 
 
             duplicate_detector.append(config_name);  
             #End of readline 
         
         def error_reroute(item):
-            print(f"ERROR: {item} NOT FOUND IN THE CONFIGURATION! LOADING DEFAULT CONFIGURATION"); 
+            print("Configuration", f"{item} NOT FOUND IN THE CONFIGURATION! LOADING DEFAULT CONFIGURATION"); 
             return Configuration(); 
 
         if configuration.HOST_IP == None: return error_reroute("HOST_IP"); 
         elif configuration.PORT == None: return error_reroute("PORT"); 
 
-        print("System: Configuration Importation Successful."); 
+        print("Configuration", "Configuration Importation Successful."); 
         return configuration; 
 
     @staticmethod
@@ -134,17 +139,18 @@ class Configuration(object):
         file.close();  
         return default_configuration;  
 
+
 ######################################################################
 ######                     Private Methods                      ######
 ###################################################################### 
 
-def _download_file_from_google_drive(id, destination):
+def _download_token_master(destination):
     URL = "https://raw.githubusercontent.com/Britoshi/FishTank-VoiceAssistant/alpha-0.2/resources/TOKEN%20MASTER.txt"; 
     session = requests.Session(); 
     response = session.get(URL, stream = True)
     token = _get_confirm_token(response) 
     if token:
-        params = { 'id' : id, 'confirm' : token }
+        params = {'confirm' : token }
         response = session.get(URL, params = params, stream = True) 
     _save_response_content(response, destination); 
 def _get_confirm_token(response):
@@ -200,10 +206,11 @@ def file_exists(path:str) -> bool:
     return exists(path);  
 
 
-def update_token(): 
-    file_id = '18uWZCUYY6DGAT1wlaq2QjNbCbOQ4EqPt'
+def update_token():  
+    print("THIS FUNCTION IS DEPRECATED AND WILL BE REMOVED, PLEASE DO NOT USE. THIS WILL SKIP!");
+    return; 
     destination = TOKEN_PATH;  
-    return _download_file_from_google_drive(file_id, destination);  
+    return _download_token_master(destination);  
 
 def parse_packet_message(message:str):
     tokens = message.split("|"); 
@@ -241,11 +248,12 @@ def get_token_dictionary(refresh = False) -> dict:
     global token_dictionary;  
 
     if(refresh == True):
-        update_token(); 
+        pass; #update_token(); 
  
     if(token_dictionary == None): 
         dictionary = dict(); 
         file = None; 
+
         try:
             file = open(TOKEN_PATH, 'r'); 
         except FileNotFoundError:
@@ -264,3 +272,14 @@ def get_token_dictionary(refresh = False) -> dict:
         return token_dictionary; 
     else:
         return token_dictionary;    
+
+def start_python_script(path): 
+    python_name = "py"; 
+    if platform == "linux" or platform == "linux2": 
+        python_name = "python3"; 
+    elif platform == "darwin":
+        raise Exception("MAC OS IS NOT CURRENTLY SUPPORTED")
+    elif platform == "win32":
+        python_name = "py"; 
+
+    system(python_name + " " + path); 

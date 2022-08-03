@@ -14,8 +14,8 @@ async def get_current_weather(location: str = "Irvine") -> str:
     await client.close()
 
 
-async def getweather(location):
-    # declare the client. format defaults to metric system (celcius, km/h, etc.)
+async def get_weather(location):
+    # declare the client. format defaults to metric system (celsius, km/h, etc.)
     client = python_weather.Client(format=python_weather.IMPERIAL); 
 
     # fetch a weather forecast from a city
@@ -37,6 +37,7 @@ def get_irvine_weather():
     loop = asyncio.new_event_loop();    
     asyncio.set_event_loop(loop); 
     loop.run_until_complete(get_current_weather()); 
+    loop.close(); 
     global current_weather;             
     return current_weather;             
 
@@ -44,5 +45,6 @@ def get_weather(location):
     loop = asyncio.new_event_loop();    
     asyncio.set_event_loop(loop); 
     loop.run_until_complete(get_current_weather(location)); 
+    loop.close(); 
     global current_weather; 
     return current_weather; 

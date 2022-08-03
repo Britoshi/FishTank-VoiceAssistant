@@ -1,0 +1,10 @@
+# ignore ALL .log files
+*.log
+*.cfg
+*.wav
+*.pyc
+
+# ignore ALL files in ANY directory named temp
+#temp/
+*.wav
+*.mdat

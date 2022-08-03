@@ -12,6 +12,8 @@ from Core.server_system import *;
 import socket; 
 from enum import Enum;
 from enum import EnumMeta;
+from os import system; 
+from sys import platform; 
 
 global token_dictionary; 
 token_dictionary = None; 
@@ -71,16 +73,23 @@ class Configuration(object):
 
     def __init__(self, default:bool = True):
         if default:   
-            self.HOST_IP = "192.168.1.101"; 
-            self.PORT = "42069"; 
+            self.HOST_IP = "localhost"; 
+            self.PORT = 42069; 
+            self.DISCORD_TOKEN = ""; 
+            self.DISCORD_CHANNEL_ID = -1;  
+
         else:
             self.HOST_IP = None; 
             self.PORT = None;   
+            self.DISCORD_TOKEN = "";  
+            self.DISCORD_CHANNEL_ID = -1; 
  
     def to_readable(self):
         text = "#FishTank Voice Assistant Configuration Version 0.1\n"; 
         text += "HOST_IP=" + self.HOST_IP + "\n"; 
-        text += "PORT=" + self.PORT; 
+        text += "PORT=" + str(self.PORT) + "\n"; 
+        text += "DISCORD_TOKEN=" + self.DISCORD_TOKEN + "\n"; 
+        text += "DISCORD_CHANNEL_ID=" + str(self.DISCORD_CHANNEL_ID); 
         return text; 
 
     @staticmethod
@@ -109,6 +118,7 @@ class Configuration(object):
         file = open(CONFIG_PATH, "r"); 
         for line in file.readlines():
             #Checks
+            if len(line.strip()) == 0: continue; 
             if line[0] == "#" : continue; 
             if "=" not in line: 
                 print_warning("Configuration", "Incorrect formatting in configuration file. Ignoring and continuing."); 
@@ -128,6 +138,14 @@ class Configuration(object):
                 except:
                     print_error("Configuration", "PORT MUST BE A NUMBER GREATER THAN 1024 AND MUST NOT CONTAIN ANY ALPHABETS! LOADING DEFAULT CONFIGURATION"); 
                     return error_reroute(); 
+            elif config_name == "DISCORD_TOKEN":
+                configuration.DISCORD_TOKEN = config_content; 
+            elif config_name == "DISCORD_CHANNEL_ID":
+                try:
+                    configuration.DISCORD_CHANNEL_ID = int(config_content); 
+                except:
+                    print_error("Configuration", "DISCORD CHANNEL ID MUST BE ALL INTEGERS!"); 
+                    configuration.DISCORD_CHANNEL_ID = -1; 
             else:
                 print_warning("Configuration", f"Given Config name of '{config_name}' does not match. Ignoring and continuing"); 
                 cls.__print_github(); 
@@ -232,10 +250,10 @@ def initialize_server():
     return (config, sock, conn, addr);  
 
 def update_token():  
+    println("Utility","THIS FUNCTION IS DEPRECATED AND WILL BE REMOVED, PLEASE DO NOT USE. THIS WILL SKIP!"); 
+    return; 
     destination = TOKEN_PATH;   
-    return __download_file_from_google_drive(destination);  
-
-
+    return __download_file_from_google_drive(destination);   
 
 def parse_packet_message(message:str):
     tokens = message.split("|"); 
@@ -295,4 +313,16 @@ def get_token_dictionary(refresh = False) -> dict:
         token_dictionary = dictionary; 
         return token_dictionary; 
     else:
-        return token_dictionary;   
+        return token_dictionary;    
+
+
+def start_python_script(path): 
+    python_name = "py"; 
+    if platform == "linux" or platform == "linux2": 
+        python_name = "python3"; 
+    elif platform == "darwin":
+        raise Exception("MAC OS IS NOT CURRENTLY SUPPORTED")
+    elif platform == "win32":
+        python_name = "py"; 
+
+    system(python_name + " " + path); 
