@@ -17,7 +17,7 @@ class Response:
 #               Command Functions               #
 ################################################# 
 
-class CommandListner:
+class CommandListener:
     def __init__(self, socket:socket.socket, voice_commands:VoiceCommands):
         self.loop_timeout = 30; 
         self.socket = socket; 

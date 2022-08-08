@@ -26,9 +26,8 @@ input_speech = str();
 VOICE_COMMANDS = VoiceCommands(); #.import_commands(); 
  
 CONFIG, SOCK, CONN, ADDR = util.initialize_server();  
-LISTENER = listener.CommandListner(CONN, VOICE_COMMANDS); 
-
-LISTENER_STATUS = util.Detection(); 
+LISTENER = listener.CommandListener(CONN, VOICE_COMMANDS);  
+GLOBAL_VARIABLE = util.VariableHolder(); 
 
 DISCORD = discord.DiscordServerAPI(); 
 
@@ -36,9 +35,17 @@ DISCORD = discord.DiscordServerAPI();
 #               Thread Work                 #
 #############################################
 
+def start_thread(func):
+    try:
+        func(); 
+    except Exception as e:
+        print_fatal_error("THREAD", e); 
+        GLOBAL_VARIABLE.exception = e; 
+        GLOBAL_VARIABLE.stop_threads = True;  
+
 def thread_network_handler(): thread_socket_listener();  
 
-THREAD_NETWORK = thread(target=thread_network_handler, args=[]);    
+THREAD_NETWORK = thread(target=start_thread, args=[thread_network_handler]);    
 
 ################################################
 
@@ -54,16 +61,18 @@ def initialize_discord():
     network_sendall(message); 
 
 def kill_threads():
-    LISTENER_STATUS.stop_threads = True;  
+    GLOBAL_VARIABLE.stop_threads = True;  
     THREAD_NETWORK.join(); 
 
 #################################################
 #####               SPEECH                  #####
 #################################################
 
-def output_speech(text: str): 
-    print("Assistant:", text); 
-    CONN.sendall(bytes(util.get_token("CLIENT_SPEAK", util.Source.SERVER, util.Source.CLIENT) + "|" + text, "utf-8")); 
+def output_speech(text: str, silent = False): 
+    print("Assistant:", text);  
+    silence = str(); 
+    if silent: silence = "|SILENT";  
+    CONN.sendall(bytes(util.get_token("CLIENT_SPEAK", util.Source.SERVER, util.Source.CLIENT) + "|" + text + silence, "utf-8")); 
 
 #################################################
 #####               Network                 #####
@@ -75,10 +84,7 @@ def network_sendall(message):
 
 def thread_socket_listener(): 
     print("Now Listening from client");  
-    while True:
-        #THIS IS THE THREAD KILLER, IMPORTANT
-        if LISTENER_STATUS.stop_threads == True: break; 
- 
+    while GLOBAL_VARIABLE.stop_threads == False:  
         readySocks, _, _ = select.select([CONN], [], [], 5); 
         for sock in readySocks:   
             process_network_packet(sock); 
@@ -138,23 +144,28 @@ def process_network_packet(sock:socket.socket):
 #####                PRIMARY Methods                  #####
 ###########################################################
 
-def process_result(response:listener.Response):  
+def process_result(response:listener.Response, silent = False):  
     if response.result == Result.SUCCESS or response.result == Result.CONTINUE:  
         print("     User:", response.spoken_sentence); 
         print("  Command:", response.trigger_command); 
-        output_speech(response.response_text); 
+        output_speech(response.response_text, silent); 
     elif response.result == Result.EXIT: 
-        output_speech("Okay"); 
+        output_speech("Okay", silent); 
     elif response.result == Result.RELOAD: 
         VOICE_COMMANDS.reload(); 
-        output_speech(response.response_text); 
+        output_speech(response.response_text, silent); 
     else: 
-        output_speech("Sorry, I didn't pick up what you said."); 
+        output_speech("Sorry, I didn't pick up what you said.", silent); 
     return State.CONTINUE;  
 
 ####################################################################
 #                       NETWORK FUNCTIONS                          #
 ####################################################################
+
+def network_exit(args):
+    SOCK.close(); 
+    GLOBAL_VARIABLE.stop_threads = True; 
+    return State.EXIT;  
 
 def network_discord_approve_user(args):
     user_id = args[0]; 
@@ -169,13 +180,23 @@ def network_process_spoken_sentence(args):
         return; 
 
     #this means that this is not a loop.
-    is_loop = len(args) > 1; 
-    print(args); 
+    try:
+        is_silent = "silent" in args[1].lower(); 
+    except Exception:
+        is_silent = False; 
+
+    is_loop = len(args) > 1 and not is_silent;  
+
+    if is_silent:
+        response = LISTENER.on_receive_spoken_sentence(spoken_sentence);  
+        process_result(response, silent = True); 
+        return State.CONTINUE;  
 
     if not is_loop:
         response = LISTENER.on_receive_spoken_sentence(spoken_sentence); 
         process_result(response); 
         return State.CONTINUE;  
+
 
     trigger_word = args[1]; 
     response:listener.Response = LISTENER.on_receive_spoken_sentence_loop(spoken_sentence, [trigger_word], exit_commands=[]); 
@@ -207,15 +228,13 @@ def main():
     initialize_discord(); 
 
 
-    while(True): 
-        stop_process = None; 
-        if(stop_process == State.EXIT): break;  
+    while GLOBAL_VARIABLE.stop_threads == False: 
+        time.sleep(0.1); 
 
-    CONN.sendall(bytes(util.get_token("STOP_SIGNAL", util.Source.SERVER, util.Source.CLIENT), "utf-8")); 
     SOCK.close();   
-    
     THREAD_NETWORK.join();    
 
+    util.raise_error(Exception("Program exited Gracefully?"), "Someone stopped the program."); 
 
 try:
     if __name__ == '__main__': 
@@ -224,8 +243,7 @@ except Exception as e:
     print_error("SYSTEM", "The Server has crashed unexpectedly."); 
     print("ERROR:", e); 
     print("\nRestarting...");  
-    #network_sendall(util.get_token("STOP_SIGNAL", util.Source.SERVER));  
-    kill_threads(); 
-    
-    util.start_python_script(f"{util.PARENT_DIR}/start.py") 
+    message = util.get_token('STOP_SIGNAL', util.Source.SERVER, util.Source.CLIENT); 
+    network_sendall(message);  
+    kill_threads();  
     sys.exit("STOPPING!"); 

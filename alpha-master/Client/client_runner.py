@@ -2,16 +2,16 @@ from xml.dom import NotFoundErr
 import speech_recognition;  
 import socket;
 import select;
-import time;
-import pickle;
+import time; 
 import threading;  
 from enum import IntEnum;
-from Modules import utility as util; 
+from Core import utility as util; 
 #util.update_token(); 
 from DiscordAPI import fish_tank_discord_api as discord; 
 from Modules import text_to_speech;
-from AudioPlayer import audio_player;
-from os import system;   
+from AudioPlayer import audio_player; 
+from Core.client_system import *; 
+from Core.InputCommand import InputCommand; 
 import sys;
 
 CONFIG = util.Configuration.load_config(); 
@@ -32,17 +32,26 @@ CLIENT_VARIABLE = util.ClientGlobalVariables();
 SOCK = util.initialize_network(HOST, PORT); 
 
 DISCORD = discord.DiscordBot(); 
+INPUT_COMMAND = InputCommand.import_commands(); 
 
 #################################################################
 #####                      CLIENT THREAD                    #####
 #################################################################
 
-def thread_network_handler(): thread_socket_listener(); 
-def thread_discord(): thread_discord_handler(); 
-#def thread_noise_handler(): thread_noise_adjuster ();  
+def start_thread(func):
+    try:
+        func(); 
+    except Exception as e:
+        CLIENT_VARIABLE.exception = e; 
+        CLIENT_VARIABLE.stop_threads = True;  
+        print(e); 
+        DISCORD.stop(); 
 
-THREAD_NETWORK = threading.Thread(target=thread_network_handler, args=[]);    
-THREAD_DISCORD = threading.Thread(target=thread_discord, args=[]); 
+def thread_network_handler(): thread_socket_listener();  
+def thread_input(): thread_input_handler();  
+
+THREAD_NETWORK = threading.Thread(target=start_thread, args=[thread_network_handler]);    
+THREAD_INPUT = threading.Thread(target=start_thread, args=[thread_input]); 
 #THREAD_NOISE = threading.Thread(target=thread_noise_handler, args=[]); 
 
 LOCK = threading.Lock(); 
@@ -59,14 +68,15 @@ class State(IntEnum):
 
 def initialize_threads():
     THREAD_NETWORK.start();  
-    THREAD_DISCORD.start(); 
+    THREAD_INPUT.start(); 
     #THREAD_NOISE.start(); 
 
 
 def kill_threads():
     CLIENT_VARIABLE.stop_threads = True;  
+    CLIENT_VARIABLE.stop_background_listener(); 
     THREAD_NETWORK.join(); 
-    THREAD_DISCORD.join();  
+    THREAD_INPUT.join();  
     #THREAD_NOISE.join(); 
 
 #################################################################
@@ -75,19 +85,19 @@ def kill_threads():
 
 def thread_socket_listener():
     machine_state = State.CONTINUE;  
-    while True:
-        if CLIENT_VARIABLE.stop_threads: break; 
+    while CLIENT_VARIABLE.stop_threads == False or machine_state == State.EXIT: 
 
         readySocks, _, _ = select.select([SOCK], [], [], 1); 
         for sock in readySocks: 
             states = receive_packet(sock);   
             
             if State.FAIL in states:
-                raise Exception("Something went definitely wrong, check it.");   
-
+                raise Exception("Something went definitely wrong, check it.");    
             machine_state = states[-1];    
 
 def thread_noise_adjuster():
+    #this is WIP, not functional
+    return; 
     refresh_thresh_hold = 15; 
     seconds_interval = 1; 
 
@@ -99,13 +109,22 @@ def thread_noise_adjuster():
         time.sleep(seconds_interval); 
         seconds_passed += seconds_interval; 
 
-def thread_discord_handler():
-    DISCORD.info.network_function = __discord_send_sentence; 
-    DISCORD.info.add_function = __discord_approve_user; 
-    while DISCORD.info.token == None:
-        time.sleep(0.1); 
-    DISCORD.run(DISCORD.info.token);   
+def thread_input_handler(): 
+    INPUT_COMMAND.set_function("say", __network_send_return_sentence); 
+    INPUT_COMMAND.set_function("silent, whisper", __network_send_return_sentence_silent); 
+    INPUT_COMMAND.set_function("help", INPUT_COMMAND.list_commands); 
+    INPUT_COMMAND.set_function("stop, quit, exit", INPUT_COMMAND.stop);  
 
+    while CLIENT_VARIABLE.stop_threads == False:
+        try:
+            user_input = input();  
+            content = user_input[user_input.index(" ") + 1:]; 
+        except EOFError:
+            print_warning("INPUT", "Escaping(Ctrl+Z/C) is not allowed. Please Type \"/stop\"."); 
+        except ValueError:
+                content = ""; 
+
+        INPUT_COMMAND.run(user_input, SOCK, content); 
 #################################################################
 #####                       OTHER FUNC                      #####
 #################################################################
@@ -132,7 +151,29 @@ def background_task_callback(recognizer:speech_recognition.Recognizer, audio):
         __network_send_return_sentence(SOCK, message); 
 
 def initialize_background_process():
-    listener = RECOGNIZER_BACKGROUND.listen_in_background(MICROPHONE_BACKGROUND, background_task_callback);  
+    CLIENT_VARIABLE.stop_background_listener = RECOGNIZER_BACKGROUND.listen_in_background(MICROPHONE_BACKGROUND, background_task_callback);  
+
+def initialize_discord(): 
+    DISCORD.info.network_function = __discord_send_sentence; 
+    DISCORD.info.add_function = __discord_approve_user;  
+
+    start_time = time.time(); 
+    while DISCORD.info.token == None and CLIENT_VARIABLE.stop_threads == False:
+        time.sleep(0.1); 
+        curr_time = time.time(); 
+        if curr_time - start_time > 60:
+            print("Failed to start Discord.");  
+            while CLIENT_VARIABLE.stop_threads == False:
+                time.sleep(0.1);  
+    
+    client_success = False; 
+    while client_success == False and CLIENT_VARIABLE.stop_threads == False:
+        try: 
+            DISCORD.run(DISCORD.info.token);    
+            client_success = True; 
+        except Exception as e:
+            print_warning("DISCORD", "Most likely rate limited by Discord. Please wait until it retries...")
+            time.sleep(10); 
 
 
 def listen_sentence_input(timeout):  
@@ -168,10 +209,14 @@ def listen_sentence_input(timeout):
 
 def main():    
     initialize_threads(); 
-    initialize_background_process(); 
+    initialize_background_process();  
+    initialize_discord(); 
 
-    while CLIENT_VARIABLE.stop_threads == False:
-        pass;   
+    if CLIENT_VARIABLE.stop_threads:
+        util.raise_error(CLIENT_VARIABLE.exception, "One of the threads have run into an error!"); 
+    else:
+        util.raise_error(Exception("Critical Discord Failure"), "This should never happen!!!"); 
+    
         
 ##################################################################
 ###################    PROCESS FUNCTIONS      ####################
@@ -222,6 +267,10 @@ def query_keyword_in_arguments(keyword:str, arguments:list):
 #               NETWORK METHODS SEND BACK METHODS               #
 #################################################################
 
+def network_sendall(message):
+    SOCK.sendall(bytes(message, 'utf-8')); 
+    println("Network", "Sending packet{" + str(len(message)) + " byte(s)} with a message of", message); 
+
 #####                   PRIVATE                     #####
 
 def __network_send_return_sentence(sock:socket.socket, spoken_sentence:str):
@@ -231,6 +280,13 @@ def __network_send_return_sentence(sock:socket.socket, spoken_sentence:str):
     else: message += spoken_sentence;  
 
     sock.sendall(bytes(message, 'utf-8'));  
+
+def __network_send_return_sentence_silent(sock:socket.socket, sentence:str):
+    message = util.get_token("RETURN_REQUEST_SENTENCE", util.Source.CLIENT, util.Source.SERVER) + "|";  
+    if(sentence == None): message += util.get_token_raw("TIMEOUT");  
+    else: message += "fish tank " + sentence + "|SILENT";  
+
+    sock.sendall(bytes(message, 'utf-8')); 
 
 def __discord_send_sentence(sentence):
     __network_send_return_sentence(SOCK, sentence); 
@@ -256,6 +312,8 @@ def network_speak(sock:socket.socket, args:list):
 
     sentence = args[0]; 
     DISCORD.write_message(sentence); 
+    #If is silent, then don't speak it.
+    if "SILENT" in args: return State.EXIT; 
     text_to_speech.create_sentence_wave(sentence);  
     audio_player.play_generated_sentence();    
     return State.EXIT; 
@@ -340,7 +398,7 @@ except Exception as e:
     print("SYSTEM", "The Client has crashed unexpectedly."); 
     print("ERROR:", e); 
     print("\nRestarting...");  
-    #network_sendall(util.get_token("STOP_SIGNAL", util.Source.SERVER));  
+    network_sendall(util.get_token("STOP_SIGNAL", util.Source.CLIENT, util.Source.SERVER));  
     kill_threads(); 
     util.start_python_script(f"{util.PARENT_DIR}/start.py") 
     sys.exit("STOPPING!"); 

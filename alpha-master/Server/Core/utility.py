@@ -3,6 +3,7 @@ from os.path import exists;
 from io import TextIOWrapper  
 import requests
 import pandas as pd;
+from subprocess import call; 
 import os, glob, sys; 
 import inspect; 
 import math;  
@@ -24,7 +25,7 @@ COMMAND_FOLDER_PATH = PARENT_DIR + r'/Resources/command list import/';
 TOKEN_PATH = PARENT_DIR + r"/Resources/TOKEN.txt";  
 CONFIG_PATH = PARENT_DIR + r"/properties.cfg";  
 
-sys.path.insert(0, PARENT_DIR);  
+sys.path.insert(1, PARENT_DIR);  
  
 
 ######################################################################
@@ -35,39 +36,10 @@ class Source(EnumMeta):
     SERVER="SERVER"; 
     CLIENT="CLIENT";  
 
-class Detection:
-    def __init__(self):
-        self.spoken_sentence:str = ""; 
-        self.result = None; 
-        self.response:Response = None; 
-        self.response_text:str = None;  
-        self.trigger_command = None; 
-        self.fishtank_seek = False; 
-        self.ready:bool = False; 
-
-        self.stop_threads = False; 
-    
-    def wait(self):
-        self.spoken_sentence = ""; 
-        self.response = None; 
-        self.result = None; 
-        self.response_text:str = None; 
-        self.trigger_command = None; 
-        self.fishtank_seek = False; 
-        self.ready = False; 
-
-    def set_ready(self, response:Response):
-        self.response = response; 
-        self.result = response.result; 
-        self.response_text:str = response.response_text;  
-        self.spoken_sentence:str = response.spoken_sentence;  
-        self.trigger_command = response.trigger_command; 
-        self.ready = True; 
-
-    def set_ready_timeout(self):
-        self.ready= True; 
-        self.result = Result.TIMEOUT; 
-
+class VariableHolder:
+    def __init__(self): 
+        self.stop_threads = False;   
+        self.exception = None;  
 
 class Configuration(object): 
 
@@ -215,7 +187,10 @@ def __save_response_content(response, destination):
                 f.write(chunk); 
                 data += chunk;  
     global token_dictionary; 
-    get_token_dictionary();   
+    get_token_dictionary();    
+    
+def __report_error(e:Exception):
+    print(e); 
 
 ######################################################################
 ######                      Public Methods                      ######
@@ -315,14 +290,23 @@ def get_token_dictionary(refresh = False) -> dict:
     else:
         return token_dictionary;    
 
-
 def start_python_script(path): 
+    command = ""; 
     python_name = "py"; 
     if platform == "linux" or platform == "linux2": 
-        python_name = "python3"; 
+        python_name = "python3";   
     elif platform == "darwin":
         raise Exception("MAC OS IS NOT CURRENTLY SUPPORTED")
     elif platform == "win32":
-        python_name = "py"; 
+        python_name = "py";  
 
-    system(python_name + " " + path); 
+    call(python_name + " " + path, shell=True); 
+
+
+def raise_error(e:Exception, message:str):
+    print("***** An error has occurred. Crash Log will be generated. *****"); 
+    print("*****", message, "*****"); 
+    print("***** Exception: ", e, "*****"); 
+    __report_error(e); 
+    print("***** RESTARTING *****"); 
+    raise e;  

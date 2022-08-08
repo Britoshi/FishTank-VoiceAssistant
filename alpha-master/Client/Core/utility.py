@@ -6,6 +6,7 @@ from enum import EnumMeta;
 import socket; 
 from os import system; 
 from sys import platform; 
+import numpy as np; 
 
 ######################################################################
 ######                     CONST AND GLOBAL                     ######
@@ -19,6 +20,8 @@ token_dictionary = None;
 #                                                                    #
 
 PARENT_DIR = str(Path("__init__.py").parent.absolute()); 
+RESOURCE_DIR = PARENT_DIR + "/Resources"; 
+
 
 TOKEN_PATH = PARENT_DIR + r"/Resources/TOKEN.txt";  
 CONFIG_PATH = PARENT_DIR + r"/properties.cfg"; 
@@ -32,6 +35,8 @@ class ClientGlobalVariables:
     def __init__(self): 
         self.stop_threads = False;  
         self.loop_available = True; 
+        self.exception = None; 
+        self.stop_background_listener = None; 
 
 
 class Source(EnumMeta):
@@ -170,11 +175,29 @@ def _save_response_content(response, destination):
     global token_dictionary; 
     get_token_dictionary(); 
 
+def __report_error(e:Exception):
+    print(e); 
 
 ######################################################################
 ######                      Public Methods                      ######
 ###################################################################### 
   
+def parse_dataframe_row(type, row, name):
+    value_raw = row[name]; 
+    try:
+        return type(value_raw); 
+    except:
+        return None;   
+
+
+def raise_error(e:Exception, message:str):
+    print("***** An error has occurred. Crash Log will be generated. *****"); 
+    print("*****", message, "*****"); 
+    print("***** Exception: ", e, "*****"); 
+    __report_error(e); 
+    print("***** RESTARTING *****")
+    raise e;  
+
 def initialize_network(host, port): 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM); 
     # connect the socket
@@ -273,13 +296,16 @@ def get_token_dictionary(refresh = False) -> dict:
     else:
         return token_dictionary;    
 
+from subprocess import call; 
+
 def start_python_script(path): 
+    command = ""; 
     python_name = "py"; 
     if platform == "linux" or platform == "linux2": 
-        python_name = "python3"; 
+        python_name = "python3";   
     elif platform == "darwin":
         raise Exception("MAC OS IS NOT CURRENTLY SUPPORTED")
     elif platform == "win32":
-        python_name = "py"; 
+        python_name = "py";  
 
-    system(python_name + " " + path); 
+    call(python_name + " " + path, shell=True); 

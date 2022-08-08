@@ -9,6 +9,7 @@ class DiscordInfo:
         self.authorized_user_list = list(); 
         self.output_message = None; 
         self.token = None;  
+        self.ready = True; 
         
         self.network_function:function = None; 
         self.add_function:function = None;  
@@ -43,6 +44,11 @@ class DiscordBot(object):
     def write_message(self, message):  
         self.info.output_message = message;  
 
+    def stop(self):
+        loop = asyncio.new_event_loop();    
+        asyncio.set_event_loop(loop); 
+        loop.run_until_complete(CLIENT.close()); 
+        loop.close();  
 
 @CLIENT.event
 async def on_ready():
@@ -64,18 +70,22 @@ async def on_message(message:discord.Message):
             await message.channel.send("You're not authorized. Please contact anyone in charge."); 
             return; 
 
+        if not INFO.ready:
+            await message.channel.send(f"Please wait until the other request is processed."); 
+            return; 
+
         #TEMP
-        if "authorize user " in msg:
+        if "authorize user " in msg: 
             user = msg.split("user ")[1].strip()
             user_id = user[2:-1];  
             INFO.approve_new_user(user_id); 
             await message.channel.send(f"{user} has been authorized."); 
-            return; 
+            return;  
 
         await fishtank_speech_handler(message);  
 
-async def fishtank_speech_handler(message: discord.Message):
-
+async def fishtank_speech_handler(message: discord.Message): 
+    INFO.ready = False; 
     INFO.network_function(message.content);    
 
     start_time = time.time(); 
@@ -87,3 +97,4 @@ async def fishtank_speech_handler(message: discord.Message):
         continue; 
     await message.channel.send(INFO.output_message); 
     INFO.output_message = None; 
+    INFO.ready = True; 

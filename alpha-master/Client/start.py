@@ -1,8 +1,7 @@
 from time import sleep; 
 from os import system; 
 from sys import platform; 
-
-sleep(5);  
+from Core.utility import start_python_script as start;  
 
 python_name = "py"; 
 if platform == "linux" or platform == "linux2": 
@@ -12,4 +11,10 @@ elif platform == "darwin":
 elif platform == "win32":
     python_name = "py"; 
 
-system(python_name + " client_runner.py"); 
+
+while(True): 
+    try:
+        start("client_runner.py");  
+    except Exception as e:
+        print(e);  
+    sleep(5);  
