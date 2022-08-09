@@ -11,7 +11,6 @@ elif platform == "darwin":
 elif platform == "win32":
     python_name = "py"; 
 
-
 while(True): 
     try:
         start("client_runner.py");  

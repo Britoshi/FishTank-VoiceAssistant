@@ -8,3 +8,7 @@
 #temp/
 *.wav
 *.mdat
+
+log/
+crash_log/
+

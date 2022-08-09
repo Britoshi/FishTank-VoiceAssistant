@@ -399,6 +399,5 @@ except Exception as e:
     print("ERROR:", e); 
     print("\nRestarting...");  
     network_sendall(util.get_token("STOP_SIGNAL", util.Source.CLIENT, util.Source.SERVER));  
-    kill_threads(); 
-    util.start_python_script(f"{util.PARENT_DIR}/start.py") 
+    kill_threads();  
     sys.exit("STOPPING!"); 

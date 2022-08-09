@@ -1,5 +1,0 @@
-priority,type,trigger_words,function,CommandType,query_list,script_name
-1,Weather,"weather, how is the weather",_speak_command_check_weather,Free,,
-1,Return,"nevermind, stop",_speak_command_return,Strict,,
-2,Weather,"weather, what is it like",_query_command_weather,Free,"in,at,around",
-1,Time,what time is it,_tell_time,Free,,brian_time_date.py

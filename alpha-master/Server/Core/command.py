@@ -193,10 +193,10 @@ class VoiceCommand:
         COMMAND_FOLDER_PATH = util.COMMAND_FOLDER_PATH;  
         commands = list();  
         script_dictionary = {}; 
-
-        os.chdir(COMMAND_FOLDER_PATH)
-        for file in glob.glob("*.csv"): 
-            df = pd.read_csv(file, sep=',');   
+ 
+        files = glob.glob("*.csv", root_dir=COMMAND_FOLDER_PATH); 
+        for file in files:  
+            df = pd.read_csv(COMMAND_FOLDER_PATH + "/" + file, sep=',');   
             #try:
             for row in df.iterrows(): 
                 row = row[1];  
@@ -265,7 +265,7 @@ class VoiceCommand:
             #    continue; 
 
         commands.sort(); 
-        println("Voice Command", "Command Importation Successful.")
+        println("Voice Command", "Command Importation Successful.") 
         return commands;  
 
 class VoiceCommands:

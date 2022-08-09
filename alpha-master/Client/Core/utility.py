@@ -1,5 +1,5 @@
 from os.path import exists;  
-from pathlib import Path
+from pathlib import Path;  
 from turtle import update;  
 import requests; 
 from enum import EnumMeta; 
@@ -7,6 +7,7 @@ import socket;
 from os import system; 
 from sys import platform; 
 import numpy as np; 
+from Core.client_system import *; 
 
 ######################################################################
 ######                     CONST AND GLOBAL                     ######
@@ -173,10 +174,7 @@ def _save_response_content(response, destination):
                 f.write(chunk); 
                 data += chunk;  
     global token_dictionary; 
-    get_token_dictionary(); 
-
-def __report_error(e:Exception):
-    print(e); 
+    get_token_dictionary();  
 
 ######################################################################
 ######                      Public Methods                      ######
@@ -190,12 +188,28 @@ def parse_dataframe_row(type, row, name):
         return None;   
 
 
-def raise_error(e:Exception, message:str):
-    print("***** An error has occurred. Crash Log will be generated. *****"); 
-    print("*****", message, "*****"); 
-    print("***** Exception: ", e, "*****"); 
-    __report_error(e); 
-    print("***** RESTARTING *****")
+def raise_error(e:Exception, message:str): 
+
+    crash_log_folder = path.home("crash_logs"); 
+    time = get_datetime(); 
+    crash_log_dir = crash_log_folder + "/CRASH_LOG_" + time + LOG_EXTENSION; 
+
+    path.mkdir_on_null(crash_log_folder); 
+    crash_log_file = open(crash_log_dir, "w"); 
+
+    file = get_current_log(type = 'r');  
+    current_log = file.read(); 
+    file.close();  
+    crash_log_file.write(current_log);   
+
+    print_log("\n\n\n\n***** An error has occurred. Crash Log will be generated. *****", file = crash_log_file); 
+    print_log("*****", message, "*****", file = crash_log_file); 
+    print_log("***** Exception: ", e, "*****\n\n", file = crash_log_file);  
+    print_log("***** RESTARTING *****\n\n\n\n", file = crash_log_file); 
+
+    file.close();  
+    crash_log_file.close(); 
+
     raise e;  
 
 def initialize_network(host, port): 
