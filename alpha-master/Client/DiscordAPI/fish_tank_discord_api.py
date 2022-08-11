@@ -64,7 +64,7 @@ async def on_message(message:discord.Message):
 
     msg = str(message.content).lower(); 
 
-    if msg.startswith('fish tank') or msg.startswith('fishtank'):
+    if msg.startswith('$'):
         
         if str(message.author.id) not in INFO.authorized_user_list: 
             await message.channel.send("You're not authorized. Please contact anyone in charge."); 
@@ -76,23 +76,28 @@ async def on_message(message:discord.Message):
 
         #TEMP
         if "authorize user " in msg: 
-            user = msg.split("user ")[1].strip()
+            user = msg.split("user ")[1].strip(); 
             user_id = user[2:-1];  
             INFO.approve_new_user(user_id); 
             await message.channel.send(f"{user} has been authorized."); 
             return;  
 
-        await fishtank_speech_handler(message);  
+        if msg.startswith('$ask ') or msg.startswith('$say '):
+            await fishtank_speech_handler(message);   
+        await message.channel.send(f"Unknown command.");  
 
-async def fishtank_speech_handler(message: discord.Message): 
+async def fishtank_speech_handler(message: discord.Message):  
     INFO.ready = False; 
-    INFO.network_function(message.content);    
+    #Runs the function.
+    INFO.network_function(message.content.replace('$','/'));    
 
     start_time = time.time(); 
     while INFO.output_message == None:
         curr_time = time.time(); 
         if curr_time - start_time > 30:
             print("Something went horribly wrong in the messaging process. Ignoring..."); 
+            INFO.output_message = None; 
+            INFO.ready = True; 
             return; 
         continue; 
     await message.channel.send(INFO.output_message); 

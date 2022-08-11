@@ -2,10 +2,7 @@ from Core import utility as util;
 from Core.command import *; 
 import socket;   
 from Core.server_system import *; 
-
-# what is the wheather in irvine in us
-#0 
-#1
+ 
 class Response:
     def __init__(self, result, response_text, spoken_sentence, trigger_command):
         self.result = result; 
@@ -13,9 +10,9 @@ class Response:
         self.spoken_sentence = spoken_sentence; 
         self.trigger_command = trigger_command; 
 
-#################################################
-#               Command Functions               #
-################################################# 
+#############################################################
+#                     Command Functions                     #
+############################################################# 
 
 class CommandListener:
     def __init__(self, socket:socket.socket, voice_commands:VoiceCommands):
@@ -34,9 +31,9 @@ class CommandListener:
         encodedMessage = bytes(sentence, 'utf-8'); 
         self.socket.sendall(encodedMessage);  
 
-#################################################
-#####           RESPONSE GETTER             #####
-#################################################
+#############################################################
+#####                 RESPONSE GETTER                   #####
+#############################################################
 
     def get_response(self, spoken_sentence):
      
@@ -44,13 +41,20 @@ class CommandListener:
 
         for voice_command in potential_commands: 
             voice_command: VoiceCommand = voice_command; 
-
+            if voice_command.disabled: continue; 
             if voice_command.queryable: 
                 query_result, queried_words = voice_command.query_for_words(spoken_sentence); 
 
-                if query_result == VoiceCommand.QueryResult.SUCCESS:
-                    
-                    command_result, response_text = voice_command.function(spoken_sentence, voice_command, queried_words, socket=self.socket); 
+                if query_result == VoiceCommand.QueryResult.SUCCESS: 
+                    try:
+                        command_result, response_text = voice_command.function(spoken_sentence, voice_command, queried_words, socket=self.socket); 
+                    except:
+                        message = f"A problem occurred while running the script \"{voice_command.script_name}\""; 
+                        message += "\nThis command will be disabled from this point."; 
+                        message += "\nError: "; 
+                        print_error("Command Listener", message); 
+                        voice_command.disabled = True; 
+                        return Response(Result.SUCCESS, f"Something went wrong. The command \"{voice_command.trigger_word}\" has been disabled.", spoken_sentence, voice_command.trigger_word); 
 
                     #method fail check   
                     if command_result == Result.FAIL:
@@ -67,9 +71,18 @@ class CommandListener:
                 if voice_command.type == VoiceCommand.Type.STRICT:
                     strict_check_result = voice_command.check_strict_sentence(spoken_sentence); 
                     if strict_check_result == Result.FAIL:
-                        continue;    
-                    
-                command_result, response_text = voice_command.function(spoken_sentence, voice_command, [], socket=self.socket); 
+                        continue;     
+                try:
+                    print("RUNNING?"); 
+                    command_result, response_text = voice_command.function(spoken_sentence, voice_command, [], socket=self.socket); 
+                except:
+                    message = f"A problem occurred while running the script \"{voice_command.script_name}\""; 
+                    message += "\nThis command will be disabled from this point."; 
+                    message += "\nError: "; 
+                    print_error("Command Listener", message); 
+                    voice_command.disabled = True; 
+                    return Response(Result.SUCCESS, f"Something went wrong. The command \"{voice_command.trigger_word}\" has been disabled.", spoken_sentence, voice_command.trigger_word); 
+                
                 if command_result == Result.FAIL:
                     continue;  
 

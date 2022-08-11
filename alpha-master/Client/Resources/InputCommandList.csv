@@ -1,5 +1,5 @@
 command input,function name,source,description
-say,,client,"Ask Fish Tank out loud, which it responds back out loud."
-"silent, whisper",,client,"Ask Fish Tank quietly, not speaking a word but giving back response in text."
+"say, speak",,client,"Ask Fish Tank out loud, which it responds back out loud."
+"silent, whisper, ask",,client,"Ask Fish Tank quietly, not speaking a word but giving back response in text."
 "stop, quit, exit",,client,Stops the client. Not sure why you'd want to do this.
 help,,client,Lists out all available commands. 

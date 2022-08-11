@@ -1,0 +1,6 @@
+priority,type,function,command type,query list,import script name,trigger words
+1,School,get_course_in_lab_via_time,Free,"at, around",canvas_integration,what class is
+2,School,get_course_in_lab_via_time_date,Free,"at, around",canvas_integration,what class is
+1,School,get_courses_via_relatve_date,Free,there,canvas_integration,what classes are there
+1,School,get_courses_via_date,Free,on,canvas_integration,what classes are on
+1,School,get_course_time_via_description,Free,"does,is",canvas_integration,when

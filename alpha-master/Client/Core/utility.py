@@ -323,3 +323,95 @@ def start_python_script(path):
         python_name = "py";  
 
     call(python_name + " " + path, shell=True); 
+
+
+#######################################################
+######              CANVAS UPDATE                ######
+#######################################################
+
+##THIS GOES IN UTIL. 
+
+def __get_cached_file(filename): 
+    cache_folder_name = 'Cache'; 
+    cache_folder_dir = path.resources(cache_folder_name); 
+    if path.mkdir_on_null(cache_folder_dir):
+        println("System", "Cache folder not found. Generating..."); 
+        return None; 
+
+    cache_files = path.listdir(cache_folder_dir); 
+    for cache_file in cache_files:  
+        #remove old cached files
+        if cache_file <= get_past_date(5): 
+            path.remove(path.resources(cache_folder_name, cache_file)); 
+            continue; 
+        if filename in cache_file:
+            println("System", "Found a cached file. Using cached file: " + cache_file); 
+            return open(path.resources(cache_folder_name, cache_file), 'rb'); 
+    return None; 
+     
+
+def __cache_file(filename, filedata, type = "wb"):
+    cache_folder_name = 'Cache'; 
+    cache_folder_dir = path.resources(cache_folder_name); 
+    if path.mkdir_on_null(cache_folder_dir): 
+        println("System", "Cache folder not found. Generating..."); 
+    
+    cache_name = get_date() + "_" + filename + ".temp"; 
+    file = open(path.resources(cache_folder_name, cache_name), "wb"); 
+    file.write(filedata); 
+    file.close(); 
+    return open(path.resources(cache_folder_name, cache_name), type); 
+    
+    
+#make sure to close it lol.
+def get_file(filename, url:str, type):
+    #filename = url[url.rindex("/") + 1:]; 
+
+    cached_file = __get_cached_file(filename); 
+    #If there is a cached file of it, just return cached file.
+    if cached_file != None: return cached_file;  
+
+    #now make a request to the url.
+    response = requests.get(url, allow_redirects=True); 
+    if response.ok:
+        return __cache_file(filename, response.content, type = type);  
+    print_warning("System", "The requested URL was either bad or the request was denied. Code: " + response.status_code); 
+    return None;  
+
+def check_null(*objs):
+    try:
+        for obj in objs:
+            if obj == None: return True; 
+    except:
+        return True; 
+    return False; 
+
+def localize_items(*items):
+    '''
+    returns in a format of "_, _, and _"
+    '''
+    iter = [];  
+    for titem in items:
+        if type(titem) == list or type(titem) == tuple:
+            [iter.append(ttitem) for ttitem in titem]; 
+            continue; 
+        iter.append(titem); 
+
+    return_string = str(); 
+    length = len(iter); 
+
+    
+    if length == 1:
+        return str(iter[0]); 
+    elif length == 2:
+        return str(iter[0]) + ' and ' + str(iter[1]); 
+
+    for i in range(length):
+        item = iter[i];   
+
+        if i + 1 == len(iter): return_string += "and " + str(item); 
+        else: return_string += str(item) + ", "; 
+    return return_string;  
+
+def datetime_to_readable(time):
+    return time.strftime("%I:%M %p"); 

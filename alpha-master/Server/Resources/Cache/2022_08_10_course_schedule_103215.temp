@@ -1,0 +1,40 @@
+BEGIN:VCALENDAR
+PRODID:-//Google Inc//Google Calendar 70.9054//EN
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VTIMEZONE
+TZID:America/Los_Angeles
+X-LIC-LOCATION:America/Los_Angeles
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+TZNAME:PDT
+DTSTART:19700308T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+TZNAME:PST
+DTSTART:19701101T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+SUMMARY:CSC 316 - INTRODUCTION TO NETWORKING - 30175
+LOCATION:Library Arts 122
+DTSTART;TZID="America/Los_Angeles":20220111T111000
+DTEND;TZID="America/Los_Angeles":20220111T122500
+RRULE:FREQ=WEEKLY;BYDAY=TU,TH;INTERVAL=1;UNTIL=20220506T122500
+DESCRIPTION:Instructor Name: Mr. Phillip Burtis\nInstructor Email: phillip.burtis@cui.edu\n\nThis calendar event does not update automatically. \n\nInformation is subject to change. To view your current class schedule, visit http://myrecords.cui.edu/.\n\nRemoving an event from your calendar does not remove you from the course.  For information on Add/Drop/Withdrawal Policy & Deadlines: https://www.cui.edu/studentlife/registrar/registration \n\nPlease check the Registrar's website for important dates and deadlines by program. https://www.cui.edu/studentlife/registrar/academic-calendars
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:THL 202 - HISTORY/LITERATURE NT - 30692
+LOCATION:Borland-Manske Center 222
+DTSTART;TZID="America/Los_Angeles":20220110T183000
+DTEND;TZID="America/Los_Angeles":20220110T212000
+RRULE:FREQ=WEEKLY;BYDAY=MO;INTERVAL=1;UNTIL=20220506T212000
+DESCRIPTION:Instructor Name: Rev. Steven Roberge\nInstructor Email: steven.roberge@cui.edu\n\nThis calendar event does not update automatically. \n\nInformation is subject to change. To view your current class schedule, visit http://myrecords.cui.edu/.\n\nRemoving an event from your calendar does not remove you from the course.  For information on Add/Drop/Withdrawal Policy & Deadlines: https://www.cui.edu/studentlife/registrar/registration \n\nPlease check the Registrar's website for important dates and deadlines by program. https://www.cui.edu/studentlife/registrar/academic-calendars
+END:VEVENT
+END:VCALENDAR

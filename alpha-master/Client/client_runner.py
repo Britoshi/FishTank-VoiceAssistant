@@ -1,4 +1,5 @@
-from xml.dom import NotFoundErr
+from asyncio import wait_for
+from xml.dom import NotFoundErr; 
 import speech_recognition;  
 import socket;
 import select;
@@ -12,7 +13,8 @@ from Modules import text_to_speech;
 from AudioPlayer import audio_player; 
 from Core.client_system import *; 
 from Core.InputCommand import InputCommand; 
-import sys;
+import sys; 
+import re;
 
 CONFIG = util.Configuration.load_config(); 
 
@@ -42,9 +44,14 @@ def start_thread(func):
     try:
         func(); 
     except Exception as e:
+        
+        exception_type, exception_object, exception_traceback = sys.exc_info(); 
+        filename = exception_traceback.tb_frame.f_code.co_filename; 
+        line_number = exception_traceback.tb_lineno; 
+
+        print_fatal_error("THREAD", e, f"\nfilename: {filename}.\nline number: {line_number}\n\n");  
         CLIENT_VARIABLE.exception = e; 
-        CLIENT_VARIABLE.stop_threads = True;  
-        print(e); 
+        CLIENT_VARIABLE.stop_threads = True;   
         DISCORD.stop(); 
 
 def thread_network_handler(): thread_socket_listener();  
@@ -74,7 +81,7 @@ def initialize_threads():
 
 def kill_threads():
     CLIENT_VARIABLE.stop_threads = True;  
-    CLIENT_VARIABLE.stop_background_listener(); 
+    CLIENT_VARIABLE.stop_background_listener(wait_for_stop=False); 
     THREAD_NETWORK.join(); 
     THREAD_INPUT.join();  
     #THREAD_NOISE.join(); 
@@ -109,22 +116,36 @@ def thread_noise_adjuster():
         time.sleep(seconds_interval); 
         seconds_passed += seconds_interval; 
 
+#####################################################################
+######                      INPUT COMMAND                       #####
+#####################################################################
+
+    
+
+def parse_user_input(user_input):
+    return user_input[user_input.index(" ") + 1:];  
+
+def run_command(user_input = None): 
+    try: 
+        if user_input == None: 
+            user_input = input();   
+        content = parse_user_input(user_input);   
+    except EOFError:
+        print_warning("INPUT", "Escaping(Ctrl+Z/C) is not allowed. Please Type \"/stop\"."); 
+    except ValueError:
+        content = "";  
+
+    INPUT_COMMAND.run(user_input, SOCK, content); 
+
 def thread_input_handler(): 
-    INPUT_COMMAND.set_function("say", __network_send_return_sentence); 
-    INPUT_COMMAND.set_function("silent, whisper", __network_send_return_sentence_silent); 
+    INPUT_COMMAND.set_function("say, speak", __network_send_return_sentence);  
+    INPUT_COMMAND.set_function("silent, whisper, ask", __network_send_return_sentence_silent); 
     INPUT_COMMAND.set_function("help", INPUT_COMMAND.list_commands); 
     INPUT_COMMAND.set_function("stop, quit, exit", INPUT_COMMAND.stop);  
 
     while CLIENT_VARIABLE.stop_threads == False:
-        try:
-            user_input = input();  
-            content = user_input[user_input.index(" ") + 1:]; 
-        except EOFError:
-            print_warning("INPUT", "Escaping(Ctrl+Z/C) is not allowed. Please Type \"/stop\"."); 
-        except ValueError:
-                content = ""; 
+        run_command(); 
 
-        INPUT_COMMAND.run(user_input, SOCK, content); 
 #################################################################
 #####                       OTHER FUNC                      #####
 #################################################################
@@ -284,12 +305,11 @@ def __network_send_return_sentence(sock:socket.socket, spoken_sentence:str):
 def __network_send_return_sentence_silent(sock:socket.socket, sentence:str):
     message = util.get_token("RETURN_REQUEST_SENTENCE", util.Source.CLIENT, util.Source.SERVER) + "|";  
     if(sentence == None): message += util.get_token_raw("TIMEOUT");  
-    else: message += "fish tank " + sentence + "|SILENT";  
-
+    else: message += "fish tank " + sentence + "|SILENT"; 
     sock.sendall(bytes(message, 'utf-8')); 
 
 def __discord_send_sentence(sentence):
-    __network_send_return_sentence(SOCK, sentence); 
+    run_command(sentence);  
 
 def __discord_approve_user(user_id):
     message = util.get_token("DISCORD_ADD", util.Source.CLIENT, util.Source.SERVER) + "|"; 
@@ -335,7 +355,6 @@ def network_exit(sock:socket.socket, args:list):
 #######################################################################
 #                           REQUEST HANDLERS                          #
 #######################################################################
-import re;
 
 def __process_packet(socket, line): 
     header, source, destination, tags, body, args = util.parse_packet_message(line);  

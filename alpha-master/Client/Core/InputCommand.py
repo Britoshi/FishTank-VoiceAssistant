@@ -23,12 +23,14 @@ class InputCommand(object):
             return; 
         self.commands[key] = value; 
 
-    def set_function(self, keywords, function):
+    def set_function(self, keywords, function): 
         keys = keywords.split(','); 
         for key in keys:
             key = key.strip(); 
-            self.commands[key].function = function; 
-
+            try:
+                self.commands[key].function = function;  
+            except:
+                print_error("Input Command", f"{key} is not in the InputCommandList.csv"); 
     def run(self, sentence:str, *args):
         sentence = sentence.strip(); 
         if not sentence.startswith("/"): return; 

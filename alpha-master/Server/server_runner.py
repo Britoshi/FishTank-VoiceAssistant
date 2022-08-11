@@ -39,13 +39,15 @@ def start_thread(func):
     try:
         func(); 
     except Exception as e: 
+        
         exception_type, exception_object, exception_traceback = sys.exc_info(); 
         filename = exception_traceback.tb_frame.f_code.co_filename; 
         line_number = exception_traceback.tb_lineno; 
 
-        print_fatal_error("THREAD", e); 
+        print_fatal_error("THREAD", e, f"\nfilename: {filename}.\nline number: {line_number}\n\n"); 
         GLOBAL_VARIABLE.exception = e; 
         GLOBAL_VARIABLE.stop_threads = True;  
+
 
 def thread_network_handler(): thread_socket_listener();  
 
@@ -158,8 +160,7 @@ def process_result(response:listener.Response, silent = False):
     elif response.result == Result.RELOAD: 
         VOICE_COMMANDS.reload(); 
         output_speech(response.response_text, silent); 
-    else: 
-        output_speech("Sorry, I didn't pick up what you said.", silent); 
+    else: output_speech("Sorry, I didn't pick up what you said.", silent); 
     return State.CONTINUE;  
 
 ####################################################################
@@ -199,8 +200,7 @@ def network_process_spoken_sentence(args):
     if not is_loop:
         response = LISTENER.on_receive_spoken_sentence(spoken_sentence); 
         process_result(response); 
-        return State.CONTINUE;  
-
+        return State.CONTINUE;   
 
     trigger_word = args[1]; 
     response:listener.Response = LISTENER.on_receive_spoken_sentence_loop(spoken_sentence, [trigger_word], exit_commands=[]); 

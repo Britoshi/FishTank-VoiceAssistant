@@ -5,6 +5,7 @@ import pandas as pd;
 import importlib;   
 from Core import utility as util;
 from Core.server_system import *; 
+import datetime; 
 
 ######################################################################
 #####                       VOICE COMMAND                        #####
@@ -17,6 +18,7 @@ class Result(IntEnum):
     EXIT = 4        
     TIMEOUT = 5 
     RELOAD = 6
+    UNKNOWN_NAME = 7 # This means just continue but it means it couldnt find the query. 
 
 class VoiceCommand:
 
@@ -30,6 +32,53 @@ class VoiceCommand:
         elif self == self.Type.FREE:
             return "Free";   
         
+    @classmethod
+    def parse_time(cls, words:str): 
+        if type(words) != str:
+            words:datetime.datetime = words; 
+            return (str(words.hour) + ":" + str(words.minute), words); 
+
+        words = words.strip().lower(); 
+        
+        if ":" not in words:
+            #singular.
+            hour =  int(words[:words.index(" ")]); 
+            minute = 0; 
+        else:
+            hour = int(words[:words.index(':')]); 
+            words_from_colon = words[words.index(':') + 1:]; 
+            minute = int(words_from_colon[:words_from_colon.index(' ')]); 
+            
+        if 'p.m.' in words or 'pm' in words:
+            if hour != 12:
+                hour += 12; 
+        elif 'a.m.' in words or 'am' in words:
+            pass; 
+        else:
+            #am nor pm detected. prompt redo. 
+            return None; #("You need a.m. or p.m. inside to specify!"); 
+        today = datetime.datetime.now();  
+        temp_hour = hour; 
+        if hour == 24: temp_hour = 0; 
+        if 'a.m.' in words or 'am' in words: 
+            if hour == 12: temp_hour = 0; 
+        time = datetime.datetime(today.year,today.month,today.day,hour=temp_hour,minute=minute); 
+        
+        return (str(hour) + ":" + str(minute), time); 
+
+    @classmethod
+    def parse_time_date(cls, words:str):
+        words = words.strip().lower(); 
+        time_string, time = cls.parse_time(words); 
+        day = ""; 
+        if "today" in words:
+            day = "today"; 
+        elif "tomorrow" in words:
+            day = "tomorrow"; 
+        else: raise Exception("")
+
+        return (time_string, day, time); 
+
     @staticmethod
     def __speak_set_script(_, cmd, __, **___):
         return (1, cmd.predetermined_speech); 
@@ -54,7 +103,11 @@ class VoiceCommand:
         self.queryable =  len(query_list) != 0; 
         self._next_word = ""; 
         self.script = script; 
-        self.predetermined_speech = predetermined_speech;  
+        self.script_name = str(); 
+        self.predetermined_speech = predetermined_speech;   
+
+        #if a crash occur, disable this specific command.
+        self.disabled = False; 
 
     def check_strict_sentence(self, spoken_sentence:str):
         if(self.type != self.Type.STRICT):
@@ -79,10 +132,7 @@ class VoiceCommand:
         SUCCESS = 1
         FAIL = 2
         ERROR = 3
-        CONTINUE = 4
-
-    def queryable(self):
-        return self.queryable; 
+        CONTINUE = 4 
 
     def query_for_words(self, spoken_sentence:str):  
 
@@ -110,7 +160,7 @@ class VoiceCommand:
         for i in range(len(self.query_list)): 
             query: list = self.query_list[i]; 
             if(len(query) == 0):
-                print_error("Voice Command","EMPTY QUERY???"); 
+                print_fatal_error("Voice Command", "EMPTY QUERY???"); 
                 return (self.QueryResult.ERROR, None); 
  
             for j in range(len(query)): 
@@ -197,72 +247,75 @@ class VoiceCommand:
         files = glob.glob("*.csv", root_dir=COMMAND_FOLDER_PATH); 
         for file in files:  
             df = pd.read_csv(COMMAND_FOLDER_PATH + "/" + file, sep=',');   
-            #try:
-            for row in df.iterrows(): 
-                row = row[1];  
-                priority:int = int(row["priority"]); 
-                name:str = row["type"]; 
+            
+            try:
+                for row in df.iterrows(): 
+                    row = row[1];  
+                    priority:int = int(row["priority"]); 
+                    name:str = row["type"]; 
 
-                trigger_word_string:str = row["trigger words"]; 
-                trigger_words = trigger_word_string.split(','); 
+                    trigger_word_string:str = row["trigger words"]; 
+                    trigger_words = trigger_word_string.split(','); 
 
-                command_type = VoiceCommand.parse_command_type(row["command type"]); 
+                    command_type = VoiceCommand.parse_command_type(row["command type"]); 
 
-                query_list = list();    
+                    query_list = list();    
 
-                query_list_string = row["query list"];              
-                if type(query_list_string) != float:
-                    query_separate = query_list_string.split("|");  
-                    for separated in query_separate: 
-                        query_list.append(list(separated.split(',')));  
+                    query_list_string = row["query list"];              
+                    if type(query_list_string) != float:
+                        query_separate = query_list_string.split("|");  
+                        for separated in query_separate: 
+                            query_list.append(list(separated.split(',')));  
 
 
-                function_string:str = row["function"];  
-                function = None; 
-                function_script = None; 
-                script_object = None; 
-                predetermined_speech = None; 
+                    function_string:str = row["function"];  
+                    function = None; 
+                    function_script = None; 
+                    script_object = None; 
+                    predetermined_speech = None; 
 
-                #This checks if the command is a simple speak one sentence
-                if "\"" in function_string:
-                    function = VoiceCommand.__speak_set_script; 
-                    predetermined_speech = function_string.replace("\"", ""); 
-                else:
-                    script_name = row["import script name"];  
+                    #This checks if the command is a simple speak one sentence
+                    if "\"" in function_string:
+                        function = VoiceCommand.__speak_set_script; 
+                        predetermined_speech = function_string.replace("\"", ""); 
+                    else:
+                        script_name = row["import script name"];  
 
-                    if type(script_name) != float:
-                        if script_name not in script_dictionary.keys():
-                            path = "ImportScript." + script_name;  
-                            println("Voice Command", "Adding a new python script: " + script_name); 
-                            try:
-                                script_dictionary[script_name] = importlib.import_module(path); 
-                            except Exception as e:
-                                print_error("Voice Command","There's a problem importing the script, '" + script_name + "'.")
-                                print("GIVEN ERROR:", e); 
-                                continue; 
-                                
-                            script_object = script_dictionary[script_name];   
-                        function_script = script_dictionary[script_name];  
-    
-                    if function_script == None:
-                        raise Exception("FATAL ERROR: function_script is still none, this should never ever happen.")
+                        if type(script_name) != float:
+                            if script_name not in script_dictionary.keys():
+                                path = "ImportScript." + script_name;  
+                                println("Voice Command", "Adding a new python script: " + script_name); 
+                                try:
+                                    script_dictionary[script_name] = importlib.import_module(path); 
+                                except Exception as e:
+                                    print_error("Voice Command","There's a problem importing the script, '" + script_name + "'.")
+                                    print("GIVEN ERROR:", e); 
+                                    continue; 
+                                    
+                                script_object = script_dictionary[script_name];   
+                            function_script = script_dictionary[script_name];  
+        
+                        if function_script == None:
+                            raise Exception("FATAL ERROR: function_script is still none, this should never ever happen.")
+                            
+                        function = getattr(function_script, function_string); 
+
+                    #Warning Check 1
+                    if command_type == VoiceCommand.Type.STRICT and len(query_list) != 0:
+                        print_warning("Voice Command","Query Command should not have a Command Type of STRICT. Changing it to FREE."); 
+                        command_type = VoiceCommand.Type.FREE; 
+
+                    for trigger_word in trigger_words: 
+                        trigger_word = trigger_word.strip().lower(); 
+                        command = VoiceCommand(priority=priority, name=name, trigger_word=trigger_word, function=function, type=command_type,query_list=query_list, script= script_object, predetermined_speech=predetermined_speech);  
+                        ### ADDED FEATURE ###
+                        command.script_name = script_dictionary[script_name]; 
+                        commands.append(command); 
                         
-                    function = getattr(function_script, function_string); 
-
-                #Warning Check 1
-                if command_type == VoiceCommand.Type.STRICT and len(query_list) != 0:
-                    print_warning("Voice Command","Query Command should not have a Command Type of STRICT. Changing it to FREE."); 
-                    command_type = VoiceCommand.Type.FREE; 
-
-                for trigger_word in trigger_words: 
-                    trigger_word = trigger_word.strip().lower(); 
-                    command = VoiceCommand(priority=priority, name=name, trigger_word=trigger_word, function=function, type=command_type,query_list=query_list, script= script_object, predetermined_speech=predetermined_speech);  
-                    commands.append(command); 
-                        
-            #except Exception as e:
-            #    print_warning("Voice Command", f"You messed up with the formating with {file}. Fix it and rerun, it is skipping...");
-            ##    print("Given Error Message: " + e);   
-            #    continue; 
+            except Exception as e:
+                print_warning("Voice Command", f"You messed up with the formatting with {file}. Fix it and rerun, it is skipping..."); 
+                print("Given Error Message: " + e);   
+                continue; 
 
         commands.sort(); 
         println("Voice Command", "Command Importation Successful.") 
@@ -271,6 +324,7 @@ class VoiceCommand:
 class VoiceCommands:
     def __init__(self):
         self.voice_commands = VoiceCommand.import_commands(); 
+        
     
     def reload(self):
         self.voice_commands = VoiceCommand.import_commands(); 

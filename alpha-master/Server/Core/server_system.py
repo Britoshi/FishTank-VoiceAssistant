@@ -31,6 +31,10 @@ def __get_past_date(days_ago):
 #####                  PUBLIC FUNC                   #####
 ##########################################################
 
+def get_past_date(days_ago):
+    ''' returns the past time in a format of ``%Y_%m_%d`` '''
+    return __to_readable_date(__get_past_date(days_ago)); 
+    
 def get_datetime():
     ''' returns the current time in a format of ``%Y_%m_%d_%H_%M_%S`` '''
     return my_datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S"); 
