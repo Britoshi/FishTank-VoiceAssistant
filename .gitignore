@@ -8,8 +8,10 @@
 #temp/
 *.wav
 *.mdat
+*.temp
 
 log/
 crash_log/
 
 Canvas/
+Cache/
