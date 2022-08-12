@@ -66,13 +66,21 @@ async def on_message(message:discord.Message):
 
     if msg.startswith('$'):
         
-        if str(message.author.id) not in INFO.authorized_user_list: 
-            await message.channel.send("You're not authorized. Please contact anyone in charge."); 
-            return; 
-
         if not INFO.ready:
             await message.channel.send(f"Please wait until the other request is processed."); 
             return; 
+
+
+        #THIS IS VERY TEMPORARY 
+        if str(message.author.id) not in INFO.authorized_user_list: 
+            if msg.startswith('$ask '):
+                await fishtank_speech_handler(message);  
+                return; 
+            elif msg.startswith('$say '):
+                await message.channel.send(f"Unknown command.");   
+                return;  
+            await message.channel.send("You're not authorized. Please contact anyone in charge."); 
+            return;  
 
         #TEMP
         if "authorize user " in msg: 
@@ -82,8 +90,10 @@ async def on_message(message:discord.Message):
             await message.channel.send(f"{user} has been authorized."); 
             return;  
 
-        if msg.startswith('$ask ') or msg.startswith('$say '):
+        if msg.startswith('$say '):
             await fishtank_speech_handler(message);   
+            return; 
+            
         await message.channel.send(f"Unknown command.");  
 
 async def fishtank_speech_handler(message: discord.Message):  

@@ -9,6 +9,7 @@
 *.wav
 *.mdat
 *.temp
+test.py
 
 log/
 crash_log/

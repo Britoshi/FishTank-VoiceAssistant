@@ -367,7 +367,7 @@ def __process_packet(socket, line):
 
 def receive_packet(sock):
     # get the text via the socket
-    encodedMessage = sock.recv(1024); 
+    encodedMessage = sock.recv(1024 * 4); 
 
     if not encodedMessage:
         print('error: encodedMessage was received as None'); 
